@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ru" data-badge="">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Альфи · новостная аналитика · Альфа-Бизнес</title>
+  <meta name="theme-color" content="#EF3124">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='11' fill='%23EF3124'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/base.css?v=1.0.0">
+  <link rel="stylesheet" href="css/shell.css?v=1.0.0">
+  <link rel="stylesheet" href="css/alfi.css?v=1.0.0">
+  <link rel="stylesheet" href="css/alfi-live.css?v=1.0.0">
+  <script defer src="js/mascot.js?v=1.0.0"></script>
+  <script defer src="js/mascot-reference.js?v=1.0.0"></script>
+  <script defer src="js/alfi-api.js?v=1.0.0"></script>
+  <script defer src="js/alfi.js?v=1.0.0"></script>
+</head>
+<body>
+  <div id="shell-top"></div>
+  <div class="layout">
+    <div id="shell-side"></div>
+    <script src="js/shell.js?v=1.0.0"></script>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M12 4.5c4.7 0 8 2.9 8 6.6s-3.3 6.6-8 6.6c-.9 0-1.8-.1-2.6-.3L5.5 19.5l.9-3.4C4.9 14.8 4 13.1 4 11.1c0-3.7 3.3-6.6 8-6.6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 11.2h.01M12 11.2h.01M15.4 11.2h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+      <symbol id="i-bank" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 12 5l8 4.5M5.5 10v7M9.5 10v7M14.5 10v7M18.5 10v7M4 19h16"/></g></symbol>
+      <symbol id="i-ext" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5M19 5l-8 8"/><path d="M17 14v4.5A1.5 1.5 0 0 1 15.5 20h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/></g></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 4 8 4.5-8 4.5-8-4.5Z"/><path d="m4 12.5 8 4.5 8-4.5M4 16.5 12 21l8-4.5"/></g></symbol>
+      <symbol id="i-flask" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4h5M10.5 4v5.2L5.4 17.6A1.6 1.6 0 0 0 6.8 20h10.4a1.6 1.6 0 0 0 1.4-2.4l-5.1-8.4V4"/><path d="M8 14.5h8"/></g></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V9M10 19V5M15 19v-7M20 19v-4"/></g></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1"/><path d="M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4"/></g></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></g></symbol>
+    </defs></svg>
+
+    <div class="page">
+      <main class="main a" id="main">
+
+        <div class="a-body" id="aFeed">
+          <div class="a-main">
+            <!-- Приветствие: при первом входе знакомит с командой, потом превращается в сводку со сроками -->
+            <section class="a-hero" id="aHero" aria-labelledby="aHeroTitle"></section>
+
+            <!-- Лента находок -->
+            <section class="a-feed" aria-labelledby="aFeedTitle">
+              <h2 class="visually-hidden" id="aFeedTitle">Находки Альфи</h2>
+              <div class="a-feed__bar">
+                <div class="a-tabs" role="tablist" aria-label="Что показать">
+                  <button class="a-tab" role="tab" data-tab="risk" aria-selected="true">Риски<sup></sup></button>
+                  <button class="a-tab" role="tab" data-tab="chance" aria-selected="false">Возможности<sup></sup></button>
+                  <button class="a-tab" role="tab" data-tab="all" aria-selected="false">Все<sup></sup></button>
+                  <button class="a-tab a-tab--read" role="tab" data-tab="read" aria-selected="false" hidden>Прочитано<sup></sup></button>
+                </div>
+                <div class="a-filter" id="aFilter" hidden></div>
+              </div>
+              <div class="f-live" id="fLive" aria-live="polite"></div>
+              <div class="a-cards" id="aCards"><div class="a-empty">Загружаю ленту…</div></div>
+            </section>
+          </div>
+
+          <!-- Справа: кот на сцене и команда -->
+          <aside class="a-side" id="aSide" aria-label="Альфи и команда">
+            <section class="a-pet" id="aStage" aria-label="Альфи на сцене">
+              <span class="a-pet__frame" aria-hidden="true"></span>
+              <p class="visually-hidden" id="aStageWho" aria-live="polite">На сцене Альфи. Все темы</p>
+              <button class="a-pet__chat" id="aStageChat" type="button" aria-label="Чат с Альфи"><span class="a-pet__chat-ic" aria-hidden="true"><svg class="ic"><use href="#i-chat"/></svg></span><span class="a-pet__chat-t" aria-hidden="true">Чат</span></button>
+            </section>
+
+            <section class="a-box">
+              <header class="a-box__head">
+                <h2 class="a-box__title">Команда Альфи</h2>
+                <p class="a-box__sub" id="aTeamSub">Собрана под вашу компанию</p>
+              </header>
+              <ul class="a-team" id="aTeam"></ul>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Добавить помощника: тема (из предложенных под компанию или своя), имя и цвет, частота -->
+  <dialog class="a-new" id="aNew" aria-labelledby="aNewTitle">
+    <form class="a-new__form" id="aNewForm" autocomplete="off" novalidate>
+      <div class="a-new__side">
+        <section class="a-new__stage" id="aNewStage" aria-label="Так будет выглядеть ваш помощник">
+          <span class="a-pet__frame" aria-hidden="true"></span>
+        </section>
+        <div class="a-new__card" aria-hidden="true">
+          <p class="a-new__card-n" id="aNewCardName">Новый помощник</p>
+          <p class="a-new__card-w" id="aNewCardWatch">Выберите тему</p>
+        </div>
+      </div>
+
+      <div class="a-new__main">
+        <header class="a-new__head">
+          <ol class="a-steps" id="aNewSteps" aria-label="Шаги">
+            <li class="a-steps__i" data-step-dot="0">Тема</li>
+            <li class="a-steps__i" data-step-dot="1">Имя и цвет</li>
+            <li class="a-steps__i" data-step-dot="2">Готово</li>
+          </ol>
+          <button class="icon-btn a-new__x" type="button" data-new-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+        </header>
+
+        <fieldset class="a-step" data-step="0">
+          <legend class="a-new__title" id="aNewTitle">За чем следить?</legend>
+          <p class="a-new__sub" id="aNewTopicsSub">Темы подобраны по данным вашей компании. Можно описать и свою.</p>
+          <div class="a-topics" id="aNewTopics"></div>
+          <div class="a-own" id="aNewOwnWrap" hidden>
+            <label class="a-field" for="aNewWatch">Своя тема</label>
+            <input class="a-input" id="aNewWatch" maxlength="60" placeholder="Например, цены на подсолнечник и пошлины">
+          </div>
+        </fieldset>
+
+        <fieldset class="a-step" data-step="1" hidden>
+          <legend class="a-new__title">Как его зовут?</legend>
+          <p class="a-new__sub">Имя будет в команде и в подсказках к новостям. Цвет поможет отличать его от остальных.</p>
+          <label class="a-field" for="aNewName">Имя</label>
+          <input class="a-input a-input--big" id="aNewName" maxlength="18" placeholder="Например, Поставщики" aria-describedby="aNewNameErr">
+          <p class="a-err" id="aNewNameErr" aria-live="polite"></p>
+          <span class="a-field" id="aNewColorsLabel">Цвет</span>
+          <div class="a-colors a-colors--big" id="aNewColors" role="radiogroup" aria-labelledby="aNewColorsLabel"></div>
+        </fieldset>
+
+        <fieldset class="a-step" data-step="2" hidden>
+          <legend class="a-new__title">Как часто писать?</legend>
+          <p class="a-new__sub">Срочное придёт сразу в любом случае. Здесь выбирается, как собирать всё остальное.</p>
+          <div class="a-freq" id="aNewFreq"></div>
+          <div class="a-sample" aria-live="polite">
+            <span class="a-sample__ava" id="aNewSampleAva" aria-hidden="true"></span>
+            <div class="a-sample__txt">
+              <p class="a-sample__h"><b id="aNewSampleName">Помощник</b> · пример сообщения</p>
+              <p class="a-sample__t" id="aNewSampleText"></p>
+            </div>
+          </div>
+        </fieldset>
+
+        <footer class="a-new__foot">
+          <button class="btn btn--ghost" type="button" id="aNewBack">Отмена</button>
+          <button class="btn btn--primary" type="submit" id="aNewNext">Дальше</button>
+        </footer>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Плавающий Альфи, когда сцена ушла за экран -->
+  <button class="a-fab" id="aFab" aria-label="Спросить Альфи" hidden><span class="a-fab__b" id="aFabBuddy"></span><span class="a-fab__n" id="aFabN" hidden></span></button>
+
+  <!-- Чат с Альфи: при открытии сцена с командой переезжает в левую часть панели -->
+  <dialog class="a-chat" id="aChat" aria-labelledby="aChatTitle">
+    <span class="a-chat__plate" aria-hidden="true"></span>
+    <div class="a-chat__dock" id="aChatDock"></div>
+    <div class="a-chat__panel" id="aChatPanel">
+    <header class="a-chat__head">
+      <span class="a-chat__ava" id="aChatAva" aria-hidden="true"></span>
+      <div><p class="a-chat__title" id="aChatTitle">Альфи</p><p class="a-chat__st" id="aChatSt">Отвечает по данным вашей компании и аналитике банка</p></div>
+      <button class="icon-btn a-chat__clear" id="aChatClear" type="button" aria-label="Очистить переписку" title="Очистить переписку"><svg class="ic"><use href="#i-refresh"/></svg></button>
+      <button class="icon-btn a-chat__x" aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="c-ctx" id="aChatCtx" hidden></div>
+    <div class="a-chat__log" id="aLog" aria-live="polite"></div>
+    <div class="a-chat__sugg" id="aChatSugg"></div>
+    <form class="a-ask a-ask--chat" id="aChatForm" autocomplete="off">
+      <label class="visually-hidden" for="aChatInput">Сообщение Альфи</label>
+      <input id="aChatInput" type="text" maxlength="2000" placeholder="Спросите про влияние на ваш бизнес">
+      <button type="submit" class="a-ask__send" aria-label="Отправить"><svg class="ic"><use href="#i-send"/></svg></button>
+    </form>
+    </div>
+  </dialog>
+
+  <!-- Разбор события: шаги агента вживую, затем документ с атрибуцией -->
+  <dialog class="x-sheet x-ins" id="aIns" aria-labelledby="aInsTitle">
+    <header class="x-sheet__head">
+      <div class="x-sheet__hd">
+        <p class="x-sheet__kicker" id="aInsKicker">Разбор для вашей компании</p>
+        <h2 class="x-sheet__title" id="aInsTitle">Разбор события</h2>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="x-sheet__body" id="aInsBody"></div>
+    <footer class="r-foot" id="aInsFoot" hidden></footer>
+    <div class="r-pop" id="rPop" role="dialog" aria-label="Источник" hidden></div>
+  </dialog>
+
+  <!-- Как работает Альфи: пошаговая анимация от новостей до разбора -->
+  <dialog class="x-modal x-how" id="aHow" aria-labelledby="aHowTitle">
+    <div class="h-in">
+      <div class="h-top">
+        <div class="h-prog" id="aHowProg" role="tablist" aria-label="Шаги"></div>
+        <button class="icon-btn h-pause" type="button" id="aHowPause" aria-label="Пауза" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="h-stage" id="aHowStage" aria-live="polite"></div>
+      <footer class="h-foot">
+        <button class="btn btn--ghost" type="button" id="aHowPrev">Назад</button>
+        <button class="btn btn--primary" type="button" id="aHowNext">Дальше</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Профиль компании: на чём строится персонализация -->
+  <dialog class="x-sheet x-prof" id="aProf" aria-labelledby="aProfTitle">
+    <header class="x-sheet__head">
+      <div class="x-sheet__hd">
+        <p class="x-sheet__kicker">Бизнес-контекст из данных банка</p>
+        <h2 class="x-sheet__title" id="aProfTitle">Профиль компании</h2>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="x-sheet__body" id="aProfBody"></div>
+  </dialog>
+
+  <!-- Метрики качества -->
+  <dialog class="x-sheet x-met" id="aMet" aria-labelledby="aMetTitle">
+    <header class="x-sheet__head">
+      <div class="x-sheet__hd">
+        <p class="x-sheet__kicker">Мониторинг сервиса</p>
+        <h2 class="x-sheet__title" id="aMetTitle">Метрики качества</h2>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+    </header>
+    <div class="x-sheet__body" id="aMetBody"></div>
+  </dialog>
+
+  <!-- Вход в демо: компания из данных кейса или описание своего бизнеса, плюс роль -->
+  <dialog class="x-modal x-login" id="aLogin" aria-labelledby="aLoginTitle">
+    <form class="x-modal__in" id="aLoginForm" autocomplete="off">
+      <header class="x-modal__head">
+        <div>
+          <p class="x-sheet__kicker">Тестовый режим</p>
+          <h2 class="x-modal__title" id="aLoginTitle">Кем войти</h2>
+          <p class="x-modal__sub">В интернет-банке компанию и роль передаёт вход в Альфа-Бизнес. Здесь их можно выбрать, чтобы увидеть, как меняется лента.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+      </header>
+      <div class="x-seg" role="tablist" aria-label="Источник компании">
+        <button type="button" role="tab" class="x-seg__b" data-src="case" aria-selected="true">Компания из данных кейса</button>
+        <button type="button" role="tab" class="x-seg__b" data-src="own" aria-selected="false">Описать свой бизнес</button>
+      </div>
+      <div class="x-pane" data-pane="case">
+        <label class="visually-hidden" for="aLoginQ">Поиск компании</label>
+        <input class="a-input" id="aLoginQ" placeholder="Поиск: U_34911, зерно, Москва, 46.71">
+        <div class="x-comps" id="aLoginList" role="radiogroup" aria-label="Компании"></div>
+      </div>
+      <div class="x-pane" data-pane="own" hidden>
+        <label class="a-field" for="aLoginText">Опишите компанию</label>
+        <textarea class="a-input x-ta" id="aLoginText" maxlength="1200" rows="4" placeholder="Чем занимается, выручка, регион, кредиты и другие продукты банка, страны ВЭД"></textarea>
+        <p class="x-hint">Шаблоны</p>
+        <div class="x-tpls" id="aLoginTpls"></div>
+        <p class="x-hint">Описание станет карточкой в формате данных кейса. Платежей и группы у такой компании нет, и сервис покажет это как неполные данные.</p>
+      </div>
+      <span class="a-field">Роль</span>
+      <div class="x-roles" id="aLoginRoles" role="radiogroup" aria-label="Роль"></div>
+      <p class="a-err" id="aLoginErr" aria-live="polite"></p>
+      <footer class="x-modal__foot">
+        <button class="btn btn--primary" type="submit" id="aLoginGo">Войти</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Проверить свою новость -->
+  <dialog class="x-modal x-submit" id="aSubmit" aria-labelledby="aSubmitTitle">
+    <form class="x-modal__in" id="aSubmitForm" autocomplete="off">
+      <header class="x-modal__head">
+        <div>
+          <p class="x-sheet__kicker">Проверка на новых данных</p>
+          <h2 class="x-modal__title" id="aSubmitTitle">Проверить свою новость</h2>
+          <p class="x-modal__sub">Лента собирается сама из новостных сайтов. Здесь можно подать любую новость и посмотреть, как Альфи её оценит для вашей компании.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Закрыть"><svg class="ic"><use href="#i-close"/></svg></button>
+      </header>
+      <label class="a-field" for="aSubTitle">Заголовок</label>
+      <input class="a-input" id="aSubTitle" maxlength="300" required minlength="8">
+      <label class="a-field" for="aSubUrl">Ссылка (необязательно)</label>
+      <input class="a-input" id="aSubUrl" maxlength="500" placeholder="https://">
+      <label class="a-field" for="aSubText">Текст</label>
+      <textarea class="a-input x-ta" id="aSubText" maxlength="8000" rows="6"></textarea>
+      <p class="a-err" id="aSubErr" aria-live="polite"></p>
+      <footer class="x-modal__foot">
+        <button class="btn btn--primary" type="submit">Оценить для компании</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>

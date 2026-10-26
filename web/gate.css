@@ -1,0 +1,34 @@
+/* страница входа */
+:root { --red:#EF3124; --ink:#0B0B0C; --text:#1C1D20; --muted:#8E9197; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; display:grid; place-items:center; padding:24px; background:#0B0B0C; color:#fff;
+         font:16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { width:100%; max-width:920px; display:grid; grid-template-columns:1.05fr .95fr; gap:0; border-radius:28px; overflow:hidden;
+          background:#151517; box-shadow:0 40px 120px -40px rgba(0,0,0,.9); }
+  .art { position:relative; min-height:420px; display:grid; place-items:end center; padding:28px;
+         background:radial-gradient(120% 90% at 30% 10%, #FF5A4A 0%, #EF3124 28%, #8E1509 62%, #2A0A06 100%); }
+  .art img { width:min(320px, 78%); filter:drop-shadow(0 24px 40px rgba(0,0,0,.45)); }
+  .art .k { position:absolute; left:28px; top:24px; font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.72); }
+  .form { padding:52px 48px; display:flex; flex-direction:column; justify-content:center; }
+  .brand { display:flex; align-items:center; gap:12px; font-weight:700; font-size:17px; }
+  .brand i { width:34px; height:34px; border-radius:10px; background:var(--red); display:grid; place-items:center; font-style:normal; font-weight:800; }
+  h1 { margin-top:28px; font-size:34px; line-height:1.1; letter-spacing:-.02em; }
+  p { margin-top:10px; color:var(--muted); font-size:15px; }
+  form { margin-top:26px; display:grid; gap:10px; }
+  label { font-size:13px; font-weight:600; color:rgba(255,255,255,.7); }
+  input { width:100%; height:52px; padding:0 16px; border-radius:14px; border:1.5px solid rgba(255,255,255,.16);
+          background:rgba(255,255,255,.06); color:#fff; font-size:16px; outline:none; transition:border-color .15s, background .15s; }
+  input:focus { border-color:#fff; background:rgba(255,255,255,.1); }
+  button { height:52px; margin-top:6px; border:0; border-radius:14px; background:var(--red); color:#fff;
+           font-size:16px; font-weight:700; cursor:pointer; transition:background .15s, transform .15s; }
+  button:hover { background:#D9281C; }
+  button:active { transform:scale(.99); }
+  .err { margin-top:14px; padding:11px 14px; border-radius:12px; background:rgba(239,49,36,.16); color:#FFB3AC; font-size:14px; }
+  .note { margin-top:22px; font-size:12.5px; color:#6D7076; }
+  @media (max-width:760px) {
+    .wrap { grid-template-columns:1fr; }
+    .art { min-height:190px; padding:16px; }
+    .art img { width:150px; }
+    .form { padding:30px 24px 34px; }
+    h1 { margin-top:20px; font-size:27px; }
+  }

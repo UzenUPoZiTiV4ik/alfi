@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from typing import Iterator
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -117,7 +117,8 @@ def health():
             "kb_chunks": db.q1("SELECT COUNT(*) n FROM kb_chunks")["n"], "llm": bool(config.LLM_API_KEY), "exa": bool(config.EXA_API_KEY)}
 
 @app.get("/api/meta")
-def meta():
+def meta(response: Response):
+    response.headers["Cache-Control"] = "private, max-age=300"
     return {"roles": {k: {"label": v["label"], "focus": v["focus"]} for k, v in ROLES.items()},
             "topics": TOPICS, "factors": {k: {"label": v["label"], "topic": v["topic"]} for k, v in FACTORS.items()},
             "sectors": {k: v["label"] for k, v in SECTORS.items()}, "models": config.MODELS, "budget": llm.budget_state(),
@@ -144,8 +145,9 @@ def demo_companies(q: str = "", sector: str = "", featured: bool = True):
                        "credit": bool(r["loa"])} for r in rows]}
 
 @app.get("/api/demo/templates")
-def demo_templates():
+def demo_templates(response: Response):
     """Для тестовой плашки: компании из данных кейса и текстовые шаблоны «свой бизнес»."""
+    response.headers["Cache-Control"] = "private, max-age=300"
     return {"companies": profile.featured()[:8], "texts": sandbox.TEMPLATES}
 
 class SandboxIn(BaseModel):

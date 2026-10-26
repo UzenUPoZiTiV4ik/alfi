@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 from . import config, db, llm, profile, search
@@ -35,6 +36,7 @@ def apply_feedback(uid: str, role: str, keys: list[str], delta: float) -> dict:
     for k in keys:
         w[k] = round(max(0.3, min(1.6, w.get(k, 1.0) + delta)), 3)
     db.ex("INSERT OR REPLACE INTO user_prefs(key,weights_json,updated) VALUES(?,?,?)", (pkey(uid, role), db.j(w), now().isoformat()))
+    invalidate_feed(uid)
     return w
 
 # ---------- Скоринг одной новости ----------
@@ -162,7 +164,27 @@ def corpus_stats(days: int = 5) -> dict:
     return {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
 
 # ---------- Лента ----------
+# лента пересобирается с sqlite каждый раз, поэтому держим её в памяти на пару десятков секунд
+_feed_cache: dict[tuple, tuple[float, dict]] = {}
+_feed_lock = threading.Lock()
+FEED_TTL_SEC = 20
+
+
+def invalidate_feed(uid: str | None = None) -> None:
+    with _feed_lock:
+        if uid is None:
+            _feed_cache.clear()
+        else:
+            for k in [k for k in _feed_cache if k[0] == uid]:
+                _feed_cache.pop(k, None)
+
+
 def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True) -> dict:
+    ck = (uid, role, limit, triage_on)
+    with _feed_lock:
+        hit = _feed_cache.get(ck)
+        if hit and time.time() - hit[0] < FEED_TTL_SEC:
+            return hit[1]
     t0 = now()
     p = profile.build(uid)
     if not p:
@@ -215,8 +237,13 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True) 
         start_triage(uid, role, pending)
     st = corpus_stats()
     st["picked"] = len(items)
-    return {"items": items, "stats": st, "triage_pending": bool(pending), "ms": int((now() - t0).total_seconds() * 1000),
-            "role": role, "uid": uid, "team": tm}
+    out = {"items": items, "stats": st, "triage_pending": bool(pending), "ms": int((now() - t0).total_seconds() * 1000),
+           "role": role, "uid": uid, "team": tm}
+    with _feed_lock:
+        if len(_feed_cache) > 64:
+            _feed_cache.clear()
+        _feed_cache[ck] = (time.time(), out)
+    return out
 
 def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bool) -> dict:
     ext = n.get("extract") or {}
@@ -331,6 +358,8 @@ def triage(uid: str, role: str, ids: list[str]) -> int:
         db.ex("INSERT OR REPLACE INTO triage(key,news_id,data_json,created) VALUES(?,?,?,?)", (key, r["id"], db.j(x), now().isoformat()))
         n += 1
     return n
+    invalidate_feed(uid)
+
 
 def triage_running(uid: str, role: str) -> bool:
     return pkey(uid, role) in _tri_running

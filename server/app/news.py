@@ -302,6 +302,7 @@ def ingest(use_exa: bool | None = None, extract: bool = True) -> dict:
               (started, now().isoformat(), len(items), new, total, n_ext, srcs, db.j(errors), cost))
         from . import search
         search.invalidate()
+        _invalidate()
         return {"status": "ok", "fetched": len(items), "new": new, "total": total, "extracted": n_ext, "sources": srcs,
                 "errors": errors, "cost_rub": round(cost, 3), "seconds": round(time.time() - t0, 1)}
     finally:
@@ -327,6 +328,12 @@ def get(news_id: str) -> dict | None:
                                           (n.get("cluster_id") or n["id"], n["id"]))]
     return n
 
+def _invalidate(uid: str | None = None) -> None:
+    """лента кэшируется на 20 секунд, после новых данных сбрасываем"""
+    from . import ranking
+    ranking.invalidate_feed(uid)
+
+
 def submit(title: str, text: str, url: str | None, uid: str) -> str:
     """Своя новость пользователя: проходит ту же разметку, видна только этому клиенту."""
     url = url or f"user://{uid}/{hashlib.sha1((title + text).encode()).hexdigest()[:12]}"
@@ -341,4 +348,5 @@ def submit(title: str, text: str, url: str | None, uid: str) -> str:
         pass
     from . import search
     search.invalidate()
+    _invalidate(uid)
     return i

@@ -150,11 +150,11 @@
   function selectCat(id) {
     const p = agentOf(id);
     if (p.id === S.cat) return;
+    catSwap(p);            // анимация стартует сразу по клику, не ждём ленту
     S.cat = p.id;
     markTeam();
-    swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
-    catSwap(p);
     paintWho(p);
+    swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
     if (chat.open) openChat(p);
   }
   function markTeam() {
@@ -958,6 +958,7 @@
   /* ---------- Чат: сцена с командой переезжает в панель чата ---------- */
   const chat = $('#aChat'), log = $('#aLog');
   const chatTitle = $('#aChatTitle'), chatSt = $('#aChatSt'), chatAva = $('#aChatAva');
+  let catBeforeChat = null;
   let chatAgent = ALFI;
   const sideEl = $('#aSide'), dock = $('#aChatDock'), chatPanel = $('#aChatPanel'), plate = chat.querySelector('.a-chat__plate');
   const holder = document.createElement('div');
@@ -1035,7 +1036,18 @@
     chat.close();
     chat.classList.remove('is-closing');
   }
-  chat.addEventListener('close', undock);
+  function backToCat() {
+    const id = catBeforeChat;
+    catBeforeChat = null;
+    if (!id || id === S.cat) return;
+    const p = agentOf(id);
+    catSwap(p);
+    S.cat = p.id;
+    markTeam();
+    paintWho(p);
+    swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
+  }
+  chat.addEventListener('close', () => { undock(); backToCat(); });
   chat.addEventListener('cancel', (e) => { e.preventDefault(); closeChat(); });
 
   /* ---------- Чат с агентом ----------
@@ -1150,11 +1162,12 @@
   }
   function openChat(person, ctxId) {
     if (person) chatAgent = person;
+    if (!chat.open) catBeforeChat = S.cat;   // кого вернуть, когда чат закроют
     // чат и сцена должны показывать одного и того же помощника
     if (chatAgent && chatAgent.id !== S.cat) {
+      catSwap(chatAgent);                    // кот меняется в момент клика
       S.cat = chatAgent.id;
       markTeam();
-      catSwap(chatAgent);
       paintWho(chatAgent);
       swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
     }

@@ -1150,6 +1150,14 @@
   }
   function openChat(person, ctxId) {
     if (person) chatAgent = person;
+    // чат и сцена должны показывать одного и того же помощника
+    if (chatAgent && chatAgent.id !== S.cat) {
+      S.cat = chatAgent.id;
+      markTeam();
+      catSwap(chatAgent);
+      paintWho(chatAgent);
+      swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
+    }
     if (ctxId !== undefined) S.chatCtx = ctxId;
     chatTitle.textContent = chatAgent.name;
     chatSt.textContent = agentStatus(chatAgent);

@@ -79,10 +79,21 @@ def _scheduler() -> None:
             except Exception:  # noqa: BLE001
                 pass
 
+def _warm_feeds() -> None:
+    """после рестарта прогреваем ленту тем, кто уже заходил: первый экран открывается без ожидания"""
+    for r in db.q("SELECT DISTINCT substr(key, 1, instr(key, '|') - 1) uid, substr(key, instr(key, '|') + 1) role "
+                  "FROM user_prefs ORDER BY updated DESC LIMIT 8"):
+        try:
+            ranking.feed(r["uid"], r["role"], triage_on=False)
+        except Exception:  # noqa: BLE001
+            pass
+
+
 @app.on_event("startup")
 def _startup() -> None:
     db.init()
     kb.ensure_loaded()
+    threading.Thread(target=_warm_feeds, daemon=True).start()
     if config.INGEST_ON_START or config.INGEST_INTERVAL_MIN > 0:
         threading.Thread(target=_scheduler, daemon=True).start()
 

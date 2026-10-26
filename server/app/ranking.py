@@ -157,23 +157,34 @@ def candidates(uid: str, days: int = 5) -> list[dict]:
             out.append(r)
     return out
 
+_stats_cache: tuple[float, dict] | None = None
+
+
 def corpus_stats(days: int = 5) -> dict:
+    """счётчики по всей базе: считаем раз в 5 минут, они меняются только после сбора"""
+    global _stats_cache
+    if _stats_cache and time.time() - _stats_cache[0] < 300:
+        return dict(_stats_cache[1], days=days)
     since = (now() - timedelta(days=days)).isoformat()
     a = db.q1("SELECT COUNT(*) n, COUNT(DISTINCT source) s, COUNT(DISTINCT cluster_id) e FROM news WHERE published >= ?", (since,))
     b = db.q1("SELECT COUNT(*) n FROM news WHERE published >= ? AND cluster_id = id AND tags_json LIKE '%\"business\":true%'", (since,))
-    return {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
+    out = {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
+    _stats_cache = (time.time(), out)
+    return out
 
 # ---------- Лента ----------
 # лента пересобирается с sqlite каждый раз, поэтому держим её в памяти на пару десятков секунд
 _feed_cache: dict[tuple, tuple[float, dict]] = {}
 _feed_lock = threading.Lock()
-FEED_TTL_SEC = 20
+FEED_TTL_SEC = 180
 
 
 def invalidate_feed(uid: str | None = None) -> None:
     with _feed_lock:
         if uid is None:
             _feed_cache.clear()
+            global _stats_cache
+            _stats_cache = None
         else:
             for k in [k for k in _feed_cache if k[0] == uid]:
                 _feed_cache.pop(k, None)

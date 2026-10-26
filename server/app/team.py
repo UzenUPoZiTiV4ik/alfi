@@ -242,4 +242,4 @@ def assign(card: dict, members: list[dict]) -> str | None:
             s += 0.9 * hit
         if s > bs:
             best, bs = m["id"], s
-    return best if bs >= 0.5 else None
+    return best if bs >= 0.3 else None

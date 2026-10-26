@@ -99,6 +99,8 @@ def conn() -> sqlite3.Connection:
         c.execute("PRAGMA journal_mode=WAL")
         c.execute("PRAGMA synchronous=NORMAL")
         c.execute("PRAGMA busy_timeout=30000")
+        c.execute("PRAGMA cache_size=-32000")   # 32 МБ под страницы: база большая, диск медленный
+        c.execute("PRAGMA mmap_size=134217728")
         _local.c = c
     return c
 

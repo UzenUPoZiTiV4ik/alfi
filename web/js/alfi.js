@@ -234,7 +234,7 @@
         </div>
         <footer class="a-card__acts f-acts">
           <button class="btn btn--dark" data-ins="${esc(it.id)}">${it.has_insight ? 'Открыть разбор' : 'Разбор для компании'}</button>
-          <button class="f-ask" data-askabout="${esc(it.id)}" style="--c:${esc(mate.fur)}" title="${esc(mate.all ? 'Альфи: все темы' : mate.task || mate.watch)}"><span class="f-ask__ava" data-ava="${esc(mate.id)}"></span><span>Спросить <b>${esc(mate.all ? 'Альфи' : mate.name)}</b></span></button>
+          <button class="f-ask" data-askabout="${esc(it.id)}" data-askhelper="${esc(it.helper || '')}" style="--c:${esc(mate.fur)}" title="${esc(mate.all ? 'Альфи: все темы' : mate.task || mate.watch)}"><span class="f-ask__ava" data-ava="${esc(mate.id)}"></span><span>Спросить <b>${esc(mate.all ? 'Альфи' : mate.name)}</b></span></button>
         </footer>
       </article>`;
   }
@@ -1176,7 +1176,9 @@
     const follow = () => { if (!p.hidden) scrollLog(); };
     follow();
     const used = [];
-    const run = API.stream('/api/chat', { method: 'POST', body: { message: q, news_id: S.chatCtx || null, helper: a.all ? null : a.id }, onEvent: (type, ev) => {
+    // helper берём из панели, а не из текущего chatAgent: иначе ответ уедет в чужой чат
+    const helperId = p.dataset.pane === 'alfi' ? null : p.dataset.pane;
+    const run = API.stream('/api/chat', { method: 'POST', body: { message: q, news_id: S.chatCtx || null, helper: helperId }, onEvent: (type, ev) => {
       const d = ev.data || {};
       if (type === 'tool' && tl()) { used.push(toolT(d.tool)); tl().textContent = 'Смотрю: ' + used.join(', '); }
       else if (type === 'guard' && tl()) tl().textContent = ev.title + (d.text ? `. ${d.text}` : '');
@@ -1684,8 +1686,9 @@
     }
     if ((t = el('[data-ins]'))) { openInsight(t.dataset.ins); return; }
     if ((t = el('[data-askabout]'))) {
+      // помощник берётся из кнопки: подпись и чат не разъедутся
       const it = byId(t.dataset.askabout);
-      openChat(it ? agentOf(it.helper) : ALFI, t.dataset.askabout);
+      openChat(agentOf(t.dataset.askhelper || (it && it.helper)), t.dataset.askabout);
       say('Что это событие значит для нашей компании и что сделать в первую очередь?');
       return;
     }

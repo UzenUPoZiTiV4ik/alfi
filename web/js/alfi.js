@@ -984,13 +984,13 @@
   const DOCK_MIN = 1100, EASE = 'cubic-bezier(.22,1,.36,1)', MOVE_MS = 560;
   let docked = false, closing = null, moveAnim = null;
   const dur = (ms) => (reduce ? 0 : ms);
-  function moving(anim, ms) {
+  function moving(anim, ms, holdScene = true) {
     moveAnim = anim;
     chat.classList.add('is-moving');
-    if (scene && scene.hold) scene.hold(ms);
+    if (holdScene && scene && scene.hold) scene.hold(ms);
     anim.finished.catch(() => {}).then(() => { if (moveAnim === anim) { chat.classList.remove('is-moving'); moveAnim = null; } });
   }
-  function openShell() {
+  function openShell(holdScene = true) {
     if (chat.open) return;
     docked = innerWidth >= DOCK_MIN;
     chat.classList.toggle('is-docked', docked);
@@ -1004,7 +1004,7 @@
     chat.showModal();
     dock.scrollTop = 0;
     const to = sideEl.getBoundingClientRect();
-    moving(sideEl.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: 'none' }], { duration: dur(MOVE_MS), easing: EASE }), dur(MOVE_MS) + 40);
+    moving(sideEl.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: 'none' }], { duration: dur(MOVE_MS), easing: EASE }), dur(MOVE_MS) + 40, holdScene);
     plate.animate([{ transform: 'translateX(100%)' }, { transform: 'none' }], { duration: dur(MOVE_MS), easing: EASE });
     chatPanel.animate([{ transform: 'translateX(48px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: dur(460), delay: dur(120), easing: EASE, fill: 'backwards' });
   }
@@ -1162,15 +1162,8 @@
   }
   function openChat(person, ctxId) {
     if (person) chatAgent = person;
-    if (!chat.open) catBeforeChat = S.cat;   // кого вернуть, когда чат закроют
-    // чат и сцена должны показывать одного и того же помощника
-    if (chatAgent && chatAgent.id !== S.cat) {
-      catSwap(chatAgent);                    // кот меняется в момент клика
-      S.cat = chatAgent.id;
-      markTeam();
-      paintWho(chatAgent);
-      swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
-    }
+    const opening = !chat.open;
+    if (opening) catBeforeChat = S.cat;      // кого вернуть, когда чат закроют
     if (ctxId !== undefined) S.chatCtx = ctxId;
     chatTitle.textContent = chatAgent.name;
     chatSt.textContent = agentStatus(chatAgent);
@@ -1180,7 +1173,19 @@
     panes.forEach((p) => { p.hidden = p !== cur; });
     if (!reduce) cur.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
     paintSugg();
-    if (!chat.open) openShell();
+    const changing = chatAgent && chatAgent.id !== S.cat;
+    if (opening) openShell(!changing);       // сцену не ставим на паузу
+    if (changing) {
+      const p = chatAgent;
+      S.cat = p.id;
+      markTeam();
+      paintWho(p);
+      // при первом открытии сцена только что переехала и ещё не видна наблюдателю:
+      // рисуем нового кота сразу, перелив включается при следующих переключениях
+      if (opening && scene && scene.setKind) { scene.setKind(p.kind); if (scene.squash) scene.squash(2.4); }
+      else catSwap(p);
+      swapFeed(() => { if (helperFilter() && !visible().length) S.tab = 'all'; });
+    }
     loadHistory(chatAgent);
     scrollLog();
     setTimeout(() => $('#aChatInput').focus({ preventScroll: true }), reduce ? 0 : 380);

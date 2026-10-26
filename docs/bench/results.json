@@ -1,0 +1,377 @@
+{
+  "meta": {
+    "uid": "U_34911",
+    "role": "cfo",
+    "at": "2026-10-26T15:52:21",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "critic": "z-ai/glm-5.3-flash",
+    "news": [
+      "7dbb6dde5f091b0a",
+      "ba6f74ecb82e2e03",
+      "1523599767046f68"
+    ]
+  },
+  "rows": [
+    {
+      "tag": "ours",
+      "ok": true,
+      "sec": 46.0,
+      "cost": 0.695,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "bank_attribution"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 1.0,
+        "depth": 0.9,
+        "attribution": 0.5
+      },
+      "critic_avg": 0.8,
+      "has_bank": true,
+      "refs": 11,
+      "words": 2424,
+      "headline": "Госзакупки зерна в интервенционный фонд: шанс для донского экспортёра закрыть сбои экспорта",
+      "news": "7dbb6dde5f091b0a",
+      "variant": "ours"
+    },
+    {
+      "tag": "ours_think",
+      "ok": true,
+      "sec": 68.6,
+      "cost": 0.827,
+      "rules_passed": 9,
+      "rules_total": 9,
+      "failed": [],
+      "critic": {
+        "grounding": 1.0,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 1.0
+      },
+      "critic_avg": 1.0,
+      "has_bank": true,
+      "refs": 13,
+      "words": 2548,
+      "headline": "Госзакупки в интервенционный фонд: до 1,2 млрд ₽ донским экспортёрам зерна, объёмы и цена не подтверждены",
+      "news": "7dbb6dde5f091b0a",
+      "variant": "ours_think"
+    },
+    {
+      "tag": "rag",
+      "ok": true,
+      "sec": 26.8,
+      "cost": 0.298,
+      "rules_passed": 7,
+      "rules_total": 9,
+      "failed": [
+        "items_sourced",
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.5
+      },
+      "critic_avg": 0.8,
+      "has_bank": true,
+      "refs": 8,
+      "words": 554,
+      "headline": "Госзакупки зерна: шанс на 1,2 млрд ₽ для донских экспортёров",
+      "news": "7dbb6dde5f091b0a",
+      "variant": "rag"
+    },
+    {
+      "tag": "rag_think",
+      "ok": true,
+      "sec": 31.1,
+      "cost": 0.288,
+      "rules_passed": 6,
+      "rules_total": 9,
+      "failed": [
+        "items_sourced",
+        "features",
+        "has_action"
+      ],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.8
+      },
+      "critic_avg": 0.875,
+      "has_bank": false,
+      "refs": 10,
+      "words": 436,
+      "headline": "Интервенции ОЗК — альтернативный сбыт при сбоях экспорта, но объём мал",
+      "news": "7dbb6dde5f091b0a",
+      "variant": "rag_think"
+    },
+    {
+      "tag": "bare",
+      "ok": true,
+      "sec": 20.0,
+      "cost": 0.202,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 0.8,
+        "depth": 0.8,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.825,
+      "has_bank": false,
+      "refs": 1,
+      "words": 455,
+      "headline": "Госзакупки зерна: шанс на выручку, но условия и объёмы неясны",
+      "news": "7dbb6dde5f091b0a",
+      "variant": "bare"
+    },
+    {
+      "tag": "ours",
+      "ok": true,
+      "sec": 39.7,
+      "cost": 0.717,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "bank_attribution"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.95,
+      "has_bank": true,
+      "refs": 18,
+      "words": 3041,
+      "headline": "Блокировка черноморских портов бьёт по экспортным отгрузкам зерна и валютной выручке",
+      "news": "ba6f74ecb82e2e03",
+      "variant": "ours"
+    },
+    {
+      "tag": "ours_think",
+      "ok": true,
+      "sec": 54.5,
+      "cost": 0.576,
+      "rules_passed": 9,
+      "rules_total": 9,
+      "failed": [],
+      "critic": {
+        "grounding": 0.9,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.9
+      },
+      "critic_avg": 0.95,
+      "has_bank": true,
+      "refs": 11,
+      "words": 2446,
+      "headline": "Обвал экспорта зерна из портов РФ в 4 раза: риск для отгрузок, цен и оборотного капитала",
+      "news": "ba6f74ecb82e2e03",
+      "variant": "ours_think"
+    },
+    {
+      "tag": "rag",
+      "ok": true,
+      "sec": 23.1,
+      "cost": 0.24,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.5
+      },
+      "critic_avg": 0.825,
+      "has_bank": true,
+      "refs": 8,
+      "words": 506,
+      "headline": "Блокировка Черного моря: экспорт зерна упал в 4 раза, риск для выручки и долга",
+      "news": "ba6f74ecb82e2e03",
+      "variant": "rag"
+    },
+    {
+      "tag": "rag_think",
+      "ok": true,
+      "sec": 28.9,
+      "cost": 0.271,
+      "rules_passed": 6,
+      "rules_total": 9,
+      "failed": [
+        "items_sourced",
+        "features",
+        "has_action"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 1.0,
+        "depth": 0.8,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.9,
+      "has_bank": false,
+      "refs": 8,
+      "words": 321,
+      "headline": "Экспорт зерна упал вчетверо: блокировка Чёрного моря бьёт по выручке и оборотке",
+      "news": "ba6f74ecb82e2e03",
+      "variant": "rag_think"
+    },
+    {
+      "tag": "bare",
+      "ok": true,
+      "sec": 21.0,
+      "cost": 0.233,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.6,
+        "personalization": 0.9,
+        "depth": 0.8,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.825,
+      "has_bank": false,
+      "refs": 1,
+      "words": 489,
+      "headline": "Обвал экспорта зерна из РФ в 4 раза: риск для выручки и оборотки",
+      "news": "ba6f74ecb82e2e03",
+      "variant": "bare"
+    },
+    {
+      "tag": "ours",
+      "ok": true,
+      "sec": 47.8,
+      "cost": 0.777,
+      "rules_passed": 9,
+      "rules_total": 9,
+      "failed": [],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.7
+      },
+      "critic_avg": 0.85,
+      "has_bank": true,
+      "refs": 17,
+      "words": 3077,
+      "headline": "Блокировка Черноморских портов бьёт по экспортной логистике зерна и валютной выручке",
+      "news": "1523599767046f68",
+      "variant": "ours"
+    },
+    {
+      "tag": "ours_think",
+      "ok": true,
+      "sec": 250.9,
+      "cost": 2.026,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "numbers"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.95,
+      "has_bank": true,
+      "refs": 11,
+      "words": 2672,
+      "headline": "Портовые отгрузки зерна упали в 4 раза: Алжир растёт, логистика дорожает",
+      "news": "1523599767046f68",
+      "variant": "ours_think"
+    },
+    {
+      "tag": "rag",
+      "ok": true,
+      "sec": 26.1,
+      "cost": 0.265,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.8,
+        "personalization": 0.9,
+        "depth": 0.9,
+        "attribution": 0.6
+      },
+      "critic_avg": 0.8,
+      "has_bank": true,
+      "refs": 6,
+      "words": 640,
+      "headline": "Обвал портовых отгрузок зерна бьёт по выручке и логистике экспортёра",
+      "news": "1523599767046f68",
+      "variant": "rag"
+    },
+    {
+      "tag": "rag_think",
+      "ok": true,
+      "sec": 32.4,
+      "cost": 0.3,
+      "rules_passed": 6,
+      "rules_total": 9,
+      "failed": [
+        "items_sourced",
+        "features",
+        "has_action"
+      ],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 0.5
+      },
+      "critic_avg": 0.8,
+      "has_bank": false,
+      "refs": 9,
+      "words": 520,
+      "headline": "Отгрузки зерна через порты РФ упали в 4 раза — риск недопоставок и кассового разрыва",
+      "news": "1523599767046f68",
+      "variant": "rag_think"
+    },
+    {
+      "tag": "bare",
+      "ok": true,
+      "sec": 20.8,
+      "cost": 0.217,
+      "rules_passed": 8,
+      "rules_total": 9,
+      "failed": [
+        "features"
+      ],
+      "critic": {
+        "grounding": 0.7,
+        "personalization": 1.0,
+        "depth": 1.0,
+        "attribution": 1.0
+      },
+      "critic_avg": 0.925,
+      "has_bank": false,
+      "refs": 1,
+      "words": 509,
+      "headline": "Экспорт зерна обвалился в 4 раза: выручка и загрузка под давлением",
+      "news": "1523599767046f68",
+      "variant": "bare"
+    }
+  ]
+}

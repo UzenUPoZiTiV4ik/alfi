@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Альфи · схемы работы</title>
+<meta name="viewport" content="width=1600">
+<!--
+  Схемы для README и документа. Узлы и стрелки заданы данными:
+  узел   <div class="n" id data-x data-y data-w>  (data-y – центр узла по вертикали)
+  стрелка в <script type="application/json" class="edges">[["из","в","подпись","r>l"], ...]
+  стороны: r l t b; к стороне можно добавить смещение: "b+20>t-30".
+-->
+<style>
+  :root {
+    --red: #EF3124; --red-soft: #FDECEA; --ink: #0B0B0C; --text: #1C1D20; --muted: #6D7076;
+    --line: #2B2C30; --soft-line: #C9CBD0; --bg: #F3F4F5; --fill: #EAEBED; --green: #2E8A3A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background: #D9DADD; color: var(--text); -webkit-font-smoothing: antialiased; }
+  .slide { position: relative; width: 1600px; height: 1000px; margin: 40px auto; padding: 60px 72px 0; background: var(--bg); overflow: hidden; }
+  .s-top { display: flex; align-items: center; gap: 12px; }
+  .s-tag { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 10px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; }
+  .s-num { font-size: 15px; font-weight: 600; color: var(--muted); }
+  h1 { margin-top: 20px; font-size: 46px; line-height: 1.08; font-weight: 800; letter-spacing: -.03em; color: var(--ink); max-width: 1180px; }
+  .lead { margin-top: 12px; font-size: 20px; line-height: 1.45; color: var(--muted); max-width: 1120px; }
+  .lead b { color: var(--ink); font-weight: 650; }
+  .corner { position: absolute; right: 40px; top: 26px; width: 190px; height: 190px; pointer-events: none; }
+  .corner img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+  /* Граф */
+  .g { position: absolute; left: 72px; right: 72px; top: 270px; bottom: 56px; }
+  .g svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .g path { fill: none; stroke: var(--line); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .g path.dash { stroke: #9A9CA2; stroke-dasharray: 6 6; }
+  .g path.red { stroke: var(--red); }
+  .el { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: 7px; background: var(--bg); font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; line-height: 1.3; }
+  .el.red { color: var(--red); }
+
+  .n { position: absolute; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 64px; padding: 10px 16px; border-radius: 16px; background: #fff; border: 2px solid var(--line); }
+  .n b { font-size: 17px; line-height: 1.22; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+  .n span { font-size: 13.5px; line-height: 1.32; color: var(--muted); }
+  .n code { font: 600 13px/1.35 ui-monospace, Menlo, monospace; color: var(--ink); }
+  .n.c { align-items: center; text-align: center; }
+  .n.ai { border-color: var(--red); }
+  .n.ai::after { content: "ИИ"; position: absolute; top: -11px; right: 12px; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--red); color: #fff; font-size: 11.5px; font-weight: 800; line-height: 20px; letter-spacing: .02em; }
+  .n.db { border-radius: 16px 16px 16px 16px; box-shadow: inset 0 7px 0 -5px var(--line); padding-top: 14px; }
+  .n.db::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; border-top: 2px solid var(--line); }
+  .n.ext { border-style: dashed; border-color: #8E9197; }
+  .n.dark { background: var(--ink); border-color: var(--ink); }
+  .n.dark b { color: #fff; } .n.dark span { color: rgba(255,255,255,.62); }
+  .n.soft { background: var(--fill); border-color: var(--fill); }
+  .n.tag { min-height: 40px; padding: 6px 12px; border-radius: 11px; border-color: var(--red); background: var(--red-soft); }
+  .n.tag code { color: #C21F14; }
+  .n.dia { min-height: 0; padding: 0; border: 0; background: none; align-items: center; justify-content: center; text-align: center; }
+  .n.dia::before { content: ""; position: absolute; left: 50%; top: 50%; width: var(--d); height: var(--d); transform: translate(-50%, -50%) rotate(45deg); background: #fff; border: 2px solid var(--line); border-radius: 12px; z-index: 0; }
+  .n.dia b, .n.dia span { position: relative; z-index: 1; }
+  .n.dia b { font-size: 15.5px; }
+  .n.box { background: transparent; border: 2px dashed var(--soft-line); border-radius: 24px; justify-content: flex-start; }
+  .n.box > i { position: absolute; left: 18px; top: -12px; padding: 0 8px; background: var(--bg); font-style: normal; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .grp { position: absolute; border: 2px dashed var(--soft-line); border-radius: 24px; }
+  .grp > i { position: absolute; left: 18px; top: -12px; padding: 0 8px; background: var(--bg); font-style: normal; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .note { position: absolute; font-size: 14px; line-height: 1.45; color: var(--muted); }
+  .note b { color: var(--ink); }
+  .legend { position: absolute; left: 72px; bottom: 24px; display: flex; gap: 22px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { display: inline-block; width: 22px; height: 14px; border-radius: 5px; border: 2px solid var(--line); background: #fff; }
+  .legend i.ai { border-color: var(--red); }
+  .legend i.db { box-shadow: inset 0 4px 0 -2px var(--line); }
+  .legend i.ext { border-style: dashed; border-color: #8E9197; }
+  .legend i.dark { background: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- 1. Архитектура -->
+<section class="slide" data-name="01-architecture">
+  <div class="s-top"><span class="s-tag">Архитектура</span><span class="s-num">1 / 7</span></div>
+  <h1>Как устроен Альфи</h1>
+  <p class="lead">Три источника данных, одна база, четыре сервиса. Браузер получает данные через REST, а ход разбора приходит потоком <b>SSE</b>.</p>
+  <span class="corner" data-cat="alfi"></span>
+  <div class="g">
+    <div class="n box" id="api" data-x="884" data-y="330" data-w="250" style="height:500px"><i>FastAPI</i></div>
+    <div class="n ext" id="rss" data-x="0" data-y="85" data-w="180"><b>14 RSS-лент</b><span>СМИ и Банк России</span></div>
+    <div class="n ext" id="exa" data-x="0" data-y="215" data-w="180"><b>Exa</b><span>search и contents</span></div>
+    <div class="n ext" id="pdf" data-x="0" data-y="390" data-w="180"><b>9 PDF банка</b><span>сканы аналитики</span></div>
+    <div class="n ext" id="csv" data-x="0" data-y="510" data-w="180"><b>CSV кейса</b><span>компании, платежи</span></div>
+    <div class="n ai" id="ing" data-x="250" data-y="150" data-w="220"><b>Сбор новостей</b><span>каждые 60 минут</span></div>
+    <div class="n ai" id="ocr" data-x="250" data-y="390" data-w="220"><b>OCR и тезисы</b><span>цитаты со страницами</span></div>
+    <div class="n" id="bdb" data-x="250" data-y="510" data-w="220"><b>build_db</b><span>профили компаний</span></div>
+    <div class="n db" id="news" data-x="560" data-y="150" data-w="230"><b>События</b><span>925 за 5 дней</span></div>
+    <div class="n db" id="kb" data-x="560" data-y="390" data-w="230"><b>База знаний</b><span>466 фрагментов</span></div>
+    <div class="n db" id="cmp" data-x="560" data-y="510" data-w="230"><b>Компании</b><span>85 514 · 1,38 млн платежей</span></div>
+    <div class="n" id="feed" data-x="910" data-y="150" data-w="200"><b>Лента</b></div>
+    <div class="n ai" id="team" data-x="910" data-y="270" data-w="200"><b>Команда</b></div>
+    <div class="n ai" id="agent" data-x="910" data-y="390" data-w="200"><b>Агент разбора</b></div>
+    <div class="n ai" id="chat" data-x="910" data-y="510" data-w="200"><b>Чат</b></div>
+    <div class="n dark c" id="ui" data-x="1236" data-y="200" data-w="220"><b>Браузер</b><span>лента, разбор, чат</span></div>
+    <div class="n ext c" id="llm" data-x="1236" data-y="460" data-w="220"><b>LLM-шлюз</b><span>4 модели из кейса</span></div>
+    <script type="application/json" class="edges">[
+      ["rss","ing","","r>l-14"], ["exa","ing","","r>l+14"], ["pdf","ocr"], ["csv","bdb"],
+      ["ing","news"], ["ocr","kb"], ["bdb","cmp"],
+      ["news","feed"], ["kb","agent"], ["cmp","chat"],
+      ["api","ui","REST + SSE","r-130>l"], ["api","llm","без ПД","r+130>l"]
+    ]</script>
+  </div>
+  <div class="legend"><span><i class="ai"></i>шаг с ИИ</span><span><i class="db"></i>хранилище SQLite</span><span><i class="ext"></i>внешний источник</span><span><i class="dark"></i>интерфейс</span></div>
+</section>
+
+<!-- 2. Откуда ИИ берёт факты -->
+<section class="slide" data-name="02-agent-sources">
+  <div class="s-top"><span class="s-tag">Источники агента</span><span class="s-num">2 / 7</span></div>
+  <h1>Откуда ИИ берёт факты</h1>
+  <p class="lead">Агент сам решает, что искать. Каждая находка получает id, и вывод может ссылаться только на них. Позиция банка берётся только из <b>bank:*</b>.</p>
+  <span class="corner" data-cat="money"></span>
+  <div class="g">
+    <div class="n dark c" id="q" data-x="0" data-y="300" data-w="170"><b>Событие или вопрос</b></div>
+    <div class="n ai c" id="ag" data-x="230" data-y="300" data-w="170"><b>Агент</b><span>план до 6 шагов</span></div>
+    <div class="n c" id="rb" data-x="460" data-y="300" data-w="150"><b>Доступ по роли</b><span>RBAC</span></div>
+    <div class="n" id="t1" data-x="680" data-y="40" data-w="270"><code>get_company_profile</code></div>
+    <div class="n" id="t2" data-x="680" data-y="170" data-w="270"><code>get_counterparties</code><code>get_group_structure</code></div>
+    <div class="n" id="t3" data-x="680" data-y="300" data-w="270"><code>search_news · get_news</code></div>
+    <div class="n" id="t4" data-x="680" data-y="430" data-w="270"><code>search_bank_analytics</code><code>get_bank_forecasts</code></div>
+    <div class="n" id="t5" data-x="680" data-y="560" data-w="270"><code>web_search · fetch_page</code></div>
+    <div class="n db" id="d1" data-x="1030" data-y="40" data-w="200"><b>Профиль</b><span>признаки компании</span></div>
+    <div class="n db" id="d2" data-x="1030" data-y="170" data-w="200"><b>Платежи и связи</b><span>контрагенты, группа</span></div>
+    <div class="n db" id="d3" data-x="1030" data-y="300" data-w="200"><b>События</b><span>RSS и Exa</span></div>
+    <div class="n db" id="d4" data-x="1030" data-y="430" data-w="200"><b>Аналитика банка</b><span>тезисы, прогнозы</span></div>
+    <div class="n ext" id="d5" data-x="1030" data-y="560" data-w="200"><b>Интернет</b><span>Exa, до 2 раз</span></div>
+    <div class="n tag c" id="k1" data-x="1310" data-y="40" data-w="146"><code>feat:*</code></div>
+    <div class="n tag c" id="k2" data-x="1310" data-y="170" data-w="146"><code>data:*</code></div>
+    <div class="n tag c" id="k3" data-x="1310" data-y="300" data-w="146"><code>news:*</code></div>
+    <div class="n tag c" id="k4" data-x="1310" data-y="430" data-w="146"><code>bank:*</code></div>
+    <div class="n tag c" id="k5" data-x="1310" data-y="560" data-w="146"><code>web:*</code></div>
+    <script type="application/json" class="edges">[
+      ["q","ag"], ["ag","rb"],
+      ["rb","t1","","r>l"], ["rb","t2","","r>l"], ["rb","t3","","r>l"], ["rb","t4","","r>l"], ["rb","t5","","r>l"],
+      ["t1","d1"], ["t2","d2"], ["t3","d3"], ["t4","d4"], ["t5","d5","","r>l","dash"],
+      ["d1","k1"], ["d2","k2"], ["d3","k3"], ["d4","k4"], ["d5","k5"]
+    ]</script>
+    <p class="note" style="left:0;top:380px;width:420px">Бухгалтер не видит связи через физлиц, казначей не видит группу. Ответы инструментов передаются модели как <b>данные, а не инструкции</b>.</p>
+  </div>
+  <div class="legend"><span><i class="ai"></i>шаг с ИИ</span><span><i class="db"></i>своя база</span><span><i class="ext"></i>внешний источник</span><span><i style="border-color:var(--red);background:var(--red-soft)"></i>id источника для сносок</span></div>
+</section>
+
+<!-- 3. Сбор новостей -->
+<section class="slide" data-name="03-news-ingest">
+  <div class="s-top"><span class="s-tag">Сбор новостей</span><span class="s-num">3 / 7</span></div>
+  <h1>Как новость попадает в базу</h1>
+  <p class="lead">Сбор запускается раз в час. Дубли отсекаются по ссылке, перепечатки склеиваются в одно событие, а ИИ размечает только то, что ещё не размечено.</p>
+  <span class="corner" data-cat="ved"></span>
+  <div class="g">
+    <div class="n soft c" id="tr" data-x="230" data-y="60" data-w="180"><b>Таймер 60 мин</b><span>или «Обновить»</span></div>
+    <div class="n ext" id="r" data-x="0" data-y="250" data-w="170"><b>14 RSS-лент</b></div>
+    <div class="n ext" id="e" data-x="0" data-y="400" data-w="170"><b>Exa</b><span>поиск и полный текст</span></div>
+    <div class="n" id="u" data-x="0" data-y="550" data-w="170"><b>Своя новость</b><span>форма в ленте</span></div>
+    <div class="n c" id="up" data-x="230" data-y="250" data-w="180"><b>Дубли по URL</b><span>upsert</span></div>
+    <div class="n c" id="rt" data-x="470" data-y="250" data-w="200"><b>Разметка правилами</b><span>отрасль, фактор, страна</span></div>
+    <div class="n c" id="cl" data-x="730" data-y="250" data-w="190"><b>Склейка в событие</b><span>перепечатки вместе</span></div>
+    <div class="n dia" id="dq" data-x="990" data-y="250" data-w="150" style="--d:112px"><b>Уже<br>размечено?</b></div>
+    <div class="n ai c" id="ex" data-x="990" data-y="470" data-w="150"><b>Разметка ИИ</b><span>пачками по 12</span></div>
+    <div class="n db c" id="db" data-x="1220" data-y="250" data-w="236"><b>События</b><span>отрасли, факторы, тон</span></div>
+    <script type="application/json" class="edges">[
+      ["tr","up","запуск","b>t"],
+      ["r","up"], ["e","up","","r>b-20"], ["u","up","","r>b+20"],
+      ["up","rt"], ["rt","cl"], ["cl","dq"],
+      ["dq","db","да"], ["dq","ex","нет","b>t"], ["ex","db","","r>b"]
+    ]</script>
+    <div class="note" style="left:470px;top:400px;width:420px">За 5 дней: <b>1 030</b> новостей из <b>135</b> источников, после склейки <b>925</b> событий, ИИ разметил <b>609</b>. Exa работает только в режимах search и contents, ответы кэшируются.</div>
+  </div>
+  <div class="legend"><span><i class="ai"></i>шаг с ИИ</span><span><i class="db"></i>хранилище</span><span><i class="ext"></i>внешний источник</span></div>
+</section>
+
+<!-- 4. Персональная лента -->
+<section class="slide" data-name="04-personal-feed">
+  <div class="s-top"><span class="s-tag">Персональная лента</span><span class="s-num">4 / 7</span></div>
+  <h1>Почему вот эта новость в моей ленте</h1>
+  <p class="lead">Профиль компании и роль читателя задают веса. Событие проходит порог, ИИ подписывает к нему риск и шаг. Отклик читателя подстраивает веса.</p>
+  <span class="corner" data-cat="sales"></span>
+  <div class="g">
+    <div class="n db" id="c" data-x="0" data-y="60" data-w="170"><b>Компании и платежи</b></div>
+    <div class="n" id="p" data-x="230" data-y="60" data-w="200"><b>Профиль</b><span>отрасль, ВЭД, кредиты</span></div>
+    <div class="n" id="s" data-x="490" data-y="60" data-w="220"><b>Чувствительность</b><span>16 факторов, вес 0–1</span></div>
+    <div class="n db" id="n" data-x="490" data-y="200" data-w="220"><b>События</b><span>за 5 дней</span></div>
+    <div class="n soft" id="r" data-x="490" data-y="320" data-w="220"><b>Роль читателя</b><span>CFO: ставка, курс, долг</span></div>
+    <div class="n soft" id="w" data-x="490" data-y="445" data-w="220"><b>Веса отклика</b><span>растут и падают</span></div>
+    <div class="n" id="sc" data-x="790" data-y="200" data-w="230"><b>Оценка</b><code>отрасль × фактор × гео</code><code>× свежесть × доверие</code></div>
+    <div class="n dia" id="th" data-x="1080" data-y="200" data-w="130" style="--d:100px"><b>≥ 0,16?</b></div>
+    <div class="n soft c" id="x" data-x="1290" data-y="200" data-w="166"><b>Не показываем</b></div>
+    <div class="n c" id="lim" data-x="1035" data-y="345" data-w="220"><b>Разнообразие</b><span>не больше 4 на фактор</span></div>
+    <div class="n ai c" id="tri" data-x="1035" data-y="460" data-w="220"><b>Подпись</b><span>риск или шанс, сферы, шаг</span></div>
+    <div class="n dark c" id="card" data-x="1035" data-y="570" data-w="220"><b>Карточка в ленте</b></div>
+    <div class="n ai c" id="tm" data-x="760" data-y="570" data-w="200"><b>Команда</b><span>ИИ выбирает трёх</span></div>
+    <div class="n soft c" id="fb" data-x="1310" data-y="570" data-w="146"><b>Отклик</b><span>полезно, не про нас</span></div>
+    <script type="application/json" class="edges">[
+      ["c","p"], ["p","s"], ["s","sc","","r>l-16"], ["n","sc"], ["r","sc","","r>l+16"], ["w","sc","","r>l+16"],
+      ["sc","th"], ["th","x","нет"], ["th","lim","да","b>t"], ["lim","tri","","b>t"], ["tri","card","","b>t"],
+      ["p","tm","кандидаты","b>l","dash"], ["tm","card"],
+      ["card","fb"], ["fb","w","веса","b>b","red"]
+    ]</script>
+  </div>
+  <div class="legend"><span><i class="ai"></i>шаг с ИИ</span><span><i class="db"></i>хранилище</span><span><i class="dark"></i>что видит читатель</span><span style="color:var(--red)">— обратная связь</span></div>
+</section>
+
+<!-- 5. Разбор -->
+<section class="slide" data-name="05-insight-agent">
+  <div class="s-top"><span class="s-tag">Разбор события</span><span class="s-num">5 / 7</span></div>
+  <h1>Как агент пишет разбор</h1>
+  <p class="lead">План, инструменты, синтез, затем две проверки: правилами и независимой моделью-критиком. Слабые поля дорабатываются, а не переписываются целиком.</p>
+  <span class="corner" data-cat="tax"></span>
+  <div class="g">
+    <div class="n dark c" id="o" data-x="0" data-y="60" data-w="160"><b>Открыть разбор</b></div>
+    <div class="n c" id="cx" data-x="210" data-y="60" data-w="170"><b>Контекст</b><span>профиль, роль, новость</span></div>
+    <div class="n ai c" id="pl" data-x="430" data-y="60" data-w="170"><b>План</b><span>цель, гипотезы</span></div>
+    <div class="n c" id="tl" data-x="650" data-y="60" data-w="180"><b>Инструменты</b><span>до 6, параллельно</span></div>
+    <div class="n dia" id="ch" data-x="890" data-y="60" data-w="150" style="--d:112px"><b>Данных<br>хватает?</b></div>
+    <div class="n c" id="more" data-x="875" data-y="230" data-w="180"><b>Добрать</b><span>банк или web_search</span></div>
+    <div class="n ai c" id="sy" data-x="1110" data-y="60" data-w="190"><b>Синтез</b><span>черновик по схеме</span></div>
+    <div class="n c" id="ru" data-x="1110" data-y="380" data-w="190"><b>9 правил</b><span>сноски, цифры, банк</span></div>
+    <div class="n ai c" id="cr" data-x="860" data-y="380" data-w="190"><b>Критик</b><span>другая модель</span></div>
+    <div class="n dia" id="ok" data-x="610" data-y="380" data-w="150" style="--d:112px"><b>Есть<br>слабые места?</b></div>
+    <div class="n ai c" id="rp" data-x="590" data-y="560" data-w="190"><b>Доработка</b><span>только слабые поля</span></div>
+    <div class="n c" id="dn" data-x="300" data-y="380" data-w="190"><b>Итог</b><span>уверенность, источники</span></div>
+    <div class="n dark c" id="ui" data-x="0" data-y="380" data-w="190"><b>Окно разбора</b><span>кэш на 12 часов</span></div>
+    <script type="application/json" class="edges">[
+      ["o","cx"], ["cx","pl"], ["pl","tl"], ["tl","ch"], ["ch","sy","да"],
+      ["ch","more","нет","b>t"], ["more","sy","","r>b-40"],
+      ["sy","ru","","b>t"], ["ru","cr","","l>r"], ["cr","ok","","l>r"], ["ok","dn","нет","l>r"], ["ok","rp","да","b>t"],
+      ["rp","ru","повторная проверка","r>b","red"], ["dn","ui","","l>r"]
+    ]</script>
+    <div class="note" style="left:0;top:180px;width:520px">Каждый шаг пишется в журнал и сразу уходит в браузер потоком SSE: <b>plan, tool, check, llm, verify, critic, repair, final</b>. Второе окно увидит прогон с начала.</div>
+  </div>
+  <div class="legend"><span><i class="ai"></i>вызов модели</span><span><i class="dark"></i>интерфейс</span><span style="color:var(--red)">— петля доработки</span></div>
+</section>
+
+<!-- 6. Чат -->
+<section class="slide" data-name="06-chat">
+  <div class="s-top"><span class="s-tag">Чат</span><span class="s-num">6 / 7</span></div>
+  <h1>Что происходит с вопросом в чате</h1>
+  <p class="lead">Сначала защита, потом контекст помощника, потом до четырёх кругов с инструментами. Перед ответом все сноски сверяются с найденными источниками.</p>
+  <span class="corner" data-cat="people"></span>
+  <div class="g">
+    <div class="n dark c" id="q" data-x="0" data-y="150" data-w="150"><b>Вопрос</b></div>
+    <div class="n c" id="m" data-x="200" data-y="150" data-w="170"><b>Маскировка</b><span>ИНН, телефон, счёт</span></div>
+    <div class="n dia" id="inj" data-x="420" data-y="150" data-w="150" style="--d:112px"><b>Попытка<br>инъекции?</b></div>
+    <div class="n soft c" id="st" data-x="400" data-y="330" data-w="190"><b>Не отправляем</b><span>пишем в журнал</span></div>
+    <div class="n c" id="cx" data-x="640" data-y="150" data-w="190"><b>Контекст</b><span>помощник, профиль, роль</span></div>
+    <div class="n ai c" id="ll" data-x="890" data-y="150" data-w="170"><b>Модель</b><span>до 4 кругов</span></div>
+    <div class="n c" id="tl" data-x="880" data-y="390" data-w="190"><b>Инструменты</b><span>те же, что у агента</span></div>
+    <div class="n c" id="vr" data-x="1110" data-y="150" data-w="160"><b>Сноски</b><span>лишние убираем</span></div>
+    <div class="n dark c" id="a" data-x="1320" data-y="150" data-w="136"><b>Ответ</b><span>банк и ИИ отдельно</span></div>
+    <div class="n db c" id="h" data-x="1320" data-y="390" data-w="136"><b>История</b><span>у каждого своя</span></div>
+    <script type="application/json" class="edges">[
+      ["q","m"], ["m","inj"], ["inj","st","да","b>t"], ["inj","cx","нет"], ["cx","ll"],
+      ["ll","tl","вызов","b-30>t-30"], ["tl","ll","данные","t+30>b+30"],
+      ["ll","vr"], ["vr","a"], ["a","h","","b>t"], ["h","cx","следующий вопрос","b>b","dash"]
+    ]</script>
+    <div class="note" style="left:0;top:480px;width:560px">Помощник держит свою тему: у «Денег» ставка и кредиты, у «ВЭД» курс и санкции. Ответ дописывается в фоне, даже если окно закрыли.</div>
+  </div>
+  <div class="legend"><span><i class="ai"></i>вызов модели</span><span><i class="db"></i>хранилище</span><span><i class="dark"></i>интерфейс</span></div>
+</section>
+
+<!-- 7. Каждый вызов ИИ -->
+<section class="slide" data-name="07-llm-calls">
+  <div class="s-top"><span class="s-tag">Вызовы ИИ</span><span class="s-num">7 / 7</span></div>
+  <h1>Через что проходит каждый вызов модели</h1>
+  <p class="lead">Шесть мест в сервисе обращаются к ИИ, и все проходят одну трубу: защита, бюджет, модель под задачу, запасная модель при сбое, журнал стоимости.</p>
+  <span class="corner" data-cat="law"></span>
+  <div class="g">
+    <div class="n" id="a1" data-x="0" data-y="20" data-w="190"><b>Разметка новостей</b></div>
+    <div class="n" id="a2" data-x="0" data-y="125" data-w="190"><b>Подписи в ленте</b></div>
+    <div class="n" id="a3" data-x="0" data-y="230" data-w="190"><b>Выбор команды</b></div>
+    <div class="n" id="a4" data-x="0" data-y="335" data-w="190"><b>План и синтез</b></div>
+    <div class="n" id="a5" data-x="0" data-y="440" data-w="190"><b>Критик</b></div>
+    <div class="n" id="a6" data-x="0" data-y="545" data-w="190"><b>Чат</b></div>
+    <div class="n c" id="gd" data-x="290" data-y="282" data-w="190"><b>Защита</b><span>маскировка ПД, рамка «данные»</span></div>
+    <div class="n dia" id="bd" data-x="540" data-y="282" data-w="150" style="--d:112px"><b>В бюджете<br>дня?</b></div>
+    <div class="n soft c" id="ps" data-x="520" data-y="80" data-w="190"><b>Пауза</b><span>&gt;120 ₽ без разборов<br>&gt;450 ₽ стоп</span></div>
+    <div class="n c" id="rt" data-x="760" data-y="282" data-w="170"><b>Модель под задачу</b></div>
+    <div class="n ext" id="m1" data-x="1000" data-y="90" data-w="240"><b>Агент и чат</b><code>deepseek-v4.1-flash</code></div>
+    <div class="n ext" id="m2" data-x="1000" data-y="222" data-w="240"><b>Разметка</b><code>gemma-4-26b</code></div>
+    <div class="n ext" id="m3" data-x="1000" data-y="354" data-w="240"><b>Критик</b><code>glm-5.3-flash</code></div>
+    <div class="n ext" id="m4" data-x="1000" data-y="530" data-w="240"><b>Запасная</b><code>qwen3.6-35b</code></div>
+    <div class="n db c" id="lg" data-x="1310" data-y="282" data-w="146"><b>Журнал</b><span>токены и ₽</span></div>
+    <script type="application/json" class="edges">[
+      ["a1","gd"], ["a2","gd"], ["a3","gd"], ["a4","gd"], ["a5","gd"], ["a6","gd"],
+      ["gd","bd"], ["bd","ps","нет","t>b"], ["bd","rt","да"],
+      ["rt","m1","","r>l"], ["rt","m2","","r>l"], ["rt","m3","","r>l"],
+      ["m1","m4","сбой","l-0>l","hide"], ["m3","m4","при сбое","b>t","red"],
+      ["m1","lg"], ["m2","lg"], ["m3","lg"], ["m4","lg"]
+    ]</script>
+    <div class="note" style="left:290px;top:430px;width:470px">У reasoning-моделей рассуждения выключены. Средний разбор стоит <b>0,73 ₽</b> и идёт <b>44 секунды</b>.<br><br>Замер на трёх событиях: с размышлениями агент проходит <b>96%</b> правил против <b>93%</b> и получает <b>0,97</b> у критика против <b>0,87</b>, но идёт <b>125 секунд</b> и стоит <b>1,14 ₽</b>. Размышления лучше, но втрое медленнее, поэтому в примере выбран режим без мышления. Подробные графики в соседних слайдах «Замеры».</div>
+  </div>
+  <div class="legend"><span><i class="db"></i>хранилище</span><span><i class="ext"></i>внешняя модель</span><span style="color:var(--red)">— запасной путь</span></div>
+</section>
+
+<script src="../../web/js/mascot.js"></script>
+<script src="../../web/js/mascot-reference.js"></script>
+<script>
+(function () {
+  // Раскладка узлов: data-x – левый край, data-y – центр по вертикали
+  document.querySelectorAll('.g').forEach((g) => {
+    const nodes = {};
+    g.querySelectorAll('.n').forEach((n) => {
+      n.style.left = n.dataset.x + 'px'; n.style.width = n.dataset.w + 'px';
+      if (n.classList.contains('dia')) n.style.height = (parseFloat(getComputedStyle(n).getPropertyValue('--d')) * 1.42) + 'px';
+      nodes[n.id] = n;
+    });
+    g.querySelectorAll('.n').forEach((n) => { n.style.top = (n.dataset.y - n.offsetHeight / 2) + 'px'; });
+    const box = (id) => {
+      const n = nodes[id];
+      if (!n) throw new Error('нет узла ' + id);
+      const x = n.offsetLeft, y = n.offsetTop, w = n.offsetWidth, h = n.offsetHeight;
+      if (n.classList.contains('dia')) { const d = parseFloat(getComputedStyle(n).getPropertyValue('--d')) * 1.414 / 2; const cx = x + w / 2, cy = y + h / 2; return { x: cx - d, y: cy - d, w: 2 * d, h: 2 * d }; }
+      return { x, y, w, h };
+    };
+    const pt = (b, spec) => {
+      const side = spec[0], off = parseFloat(spec.slice(1) || 0);
+      if (side === 'r') return { x: b.x + b.w, y: b.y + b.h / 2 + off, s: 'r' };
+      if (side === 'l') return { x: b.x, y: b.y + b.h / 2 + off, s: 'l' };
+      if (side === 't') return { x: b.x + b.w / 2 + off, y: b.y, s: 't' };
+      return { x: b.x + b.w / 2 + off, y: b.y + b.h, s: 'b' };
+    };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#2B2C30" stroke="none"/></marker><marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#EF3124" stroke="none"/></marker><marker id="ahd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#9A9CA2" stroke="none"/></marker></defs>';
+    g.prepend(svg);
+    const edges = JSON.parse(g.querySelector('.edges').textContent);
+    for (const [from, to, label = '', sides = 'r>l', cls = ''] of edges) {
+      if (cls === 'hide') continue;
+      const [sa, sb] = sides.split('>');
+      const a = pt(box(from), sa), b = pt(box(to), sb);
+      const P = [[a.x, a.y]], G = 26;
+      const horiz = (s) => s === 'r' || s === 'l';
+      if (horiz(a.s) && horiz(b.s)) {
+        if (a.s === b.s) { const X = (a.s === 'r' ? Math.max(a.x, b.x) + 40 : Math.min(a.x, b.x) - 40); P.push([X, a.y], [X, b.y]); }
+        else if (Math.abs(a.y - b.y) > 1) { const X = (a.x + b.x) / 2; P.push([X, a.y], [X, b.y]); }
+      } else if (!horiz(a.s) && !horiz(b.s)) {
+        if (a.s === b.s) { const Y = (a.s === 'b' ? Math.max(a.y, b.y) + 48 : Math.min(a.y, b.y) - 48); P.push([a.x, Y], [b.x, Y]); }
+        else if (Math.abs(a.x - b.x) > 1) { const Y = (a.y + b.y) / 2; P.push([a.x, Y], [b.x, Y]); }
+      } else if (horiz(a.s)) P.push([b.x, a.y]);
+      else P.push([a.x, b.y]);
+      P.push([b.x, b.y]);
+      const d = P.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      if (cls) path.setAttribute('class', cls);
+      path.setAttribute('marker-end', `url(#${cls === 'red' ? 'ahr' : cls === 'dash' ? 'ahd' : 'ah'})`);
+      svg.appendChild(path);
+      if (label) {
+        let best = 0, bi = 0;
+        for (let i = 1; i < P.length; i++) { const L = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (L > best) { best = L; bi = i; } }
+        const el = document.createElement('span');
+        el.className = 'el' + (cls === 'red' ? ' red' : '');
+        el.textContent = label;
+        el.style.left = (P[bi - 1][0] + P[bi][0]) / 2 + 'px'; el.style.top = (P[bi - 1][1] + P[bi][1]) / 2 + 'px';
+        g.appendChild(el);
+      }
+    }
+  });
+  // Маскот в углу: актуальная 3D-модель с сайта
+  const M = window.Mascot;
+  document.querySelectorAll('[data-cat]').forEach((el) => {
+    const src = M && M.img ? M.img(el.dataset.cat, 380) : '';
+    if (src) { const img = new Image(); img.alt = ''; img.src = src; el.appendChild(img); }
+  });
+  document.body.dataset.ready = '1';
+})();
+</script>
+</body>
+</html>

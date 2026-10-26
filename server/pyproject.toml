@@ -1,0 +1,22 @@
+[project]
+name = "alfi-insights"
+version = "1.0.0"
+description = "Альфи: персональная новостная аналитика для крупного бизнеса (Альфа Хак)"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi==0.162.0",
+    "httpx==0.28.1",
+    "snowballstemmer==3.1.1",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "pymupdf==2.0",
+    "pytest==9.1.1",
+    "python-docx==1.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

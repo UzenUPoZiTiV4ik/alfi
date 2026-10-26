@@ -1,0 +1,11 @@
+services:
+  alfi:
+    build: .
+    image: alfi-news:1.0.0
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Сюда кладутся данные кейса (raw/*.csv, kb/pdf/*.pdf), здесь же создаётся база
+      - ./server/data:/app/server/data
+    restart: unless-stopped

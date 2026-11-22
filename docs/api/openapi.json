@@ -3,7 +3,7 @@
   "info": {
     "title": "Альфи · новостная аналитика для крупного бизнеса",
     "description": "Персональные бизнес-инсайты из новостей и аналитики Альфа-Банка. Прототип для Альфа Хак.",
-    "version": "1.0.0"
+    "version": "1.3.0"
   },
   "paths": {
     "/api/health": {
@@ -185,28 +185,20 @@
         }
       }
     },
-    "/api/me": {
-      "get": {
-        "summary": "Me",
-        "operationId": "me_api_me_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
+    "/api/auth/session": {
+      "post": {
+        "summary": "Create Session",
+        "operationId": "create_session_api_auth_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionIn"
+              }
             }
-          }
-        ],
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -223,6 +215,54 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/cookie": {
+      "post": {
+        "summary": "Exchange Cookie",
+        "operationId": "exchange_cookie_api_auth_cookie_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "summary": "Me",
+        "operationId": "me_api_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -233,40 +273,12 @@
       "get": {
         "summary": "Get Profile",
         "operationId": "get_profile_api_profile_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -277,24 +289,30 @@
       "get": {
         "summary": "Get Team",
         "operationId": "get_team_api_team_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
             }
           }
-        ],
+        }
+      },
+      "put": {
+        "summary": "Put Team",
+        "operationId": "put_team_api_team_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -316,36 +334,18 @@
           }
         }
       },
-      "put": {
+      "post": {
         "summary": "Put Team",
-        "operationId": "put_team_api_team_put",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
+        "operationId": "put_team_api_team_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TeamIn"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -371,24 +371,43 @@
       "delete": {
         "summary": "Reset Team",
         "operationId": "reset_team_api_team_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/team/{member_id}/schedule": {
+      "put": {
+        "summary": "Put Schedule",
+        "operationId": "put_schedule_api_team__member_id__schedule_put",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
+            "name": "member_id",
+            "in": "path",
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
+              "type": "string",
+              "title": "Member Id"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleIn"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -411,25 +430,65 @@
         }
       }
     },
+    "/api/feed/status": {
+      "get": {
+        "summary": "Feed Status",
+        "operationId": "feed_status_api_feed_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feed": {
       "get": {
         "summary": "Get Feed",
         "operationId": "get_feed_api_feed_get",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "integer",
+                  "maximum": 200,
+                  "minimum": 1
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Authorization"
+              "title": "Limit"
             }
           }
         ],
@@ -468,22 +527,6 @@
               "type": "string",
               "title": "News Id"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -512,33 +555,15 @@
       "post": {
         "summary": "Submit News",
         "operationId": "submit_news_api_news_submit_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubmitIn"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -574,22 +599,6 @@
             "schema": {
               "type": "string",
               "title": "News Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -638,22 +647,6 @@
               "default": false,
               "title": "Force"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -682,24 +675,6 @@
       "post": {
         "summary": "Chat",
         "operationId": "chat_api_chat_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -744,22 +719,6 @@
               "default": "",
               "title": "Helper"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -796,21 +755,107 @@
               "default": "",
               "title": "Helper"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "summary": "Get Run",
+        "operationId": "get_run_api_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/stream": {
+      "get": {
+        "summary": "Resume Run",
+        "operationId": "resume_run_api_runs__run_id__stream_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
           },
           {
-            "name": "authorization",
+            "name": "after_seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "After Seq"
+            }
+          },
+          {
+            "name": "last-event-id",
             "in": "header",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "integer",
+                  "minimum": 0
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Authorization"
+              "title": "Last-Event-Id"
             }
           }
         ],
@@ -849,22 +894,6 @@
               "type": "string",
               "title": "Run Id"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
           }
         ],
         "responses": {
@@ -893,33 +922,15 @@
       "post": {
         "summary": "Feedback",
         "operationId": "feedback_api_feedback_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FeedbackIn"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -953,6 +964,57 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kb/search": {
+      "get": {
+        "summary": "Kb Search",
+        "operationId": "kb_search_api_kb_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -1074,40 +1136,12 @@
       "get": {
         "summary": "Get Metrics",
         "operationId": "get_metrics_api_metrics_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -1134,40 +1168,12 @@
       "post": {
         "summary": "Ingest Run",
         "operationId": "ingest_run_api_ingest_run_post",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -1223,7 +1229,7 @@
           },
           "kind": {
             "type": "string",
-            "pattern": "^(useful|not_relevant|undo|rating|expert|action)$",
+            "pattern": "^(useful|not_relevant|undo|undo_useful|neutral|rating|expert|action)$",
             "title": "Kind"
           },
           "value": {
@@ -1307,6 +1313,31 @@
         ],
         "title": "SandboxIn"
       },
+      "ScheduleIn": {
+        "properties": {
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "off",
+              "now",
+              "day",
+              "week"
+            ],
+            "title": "Frequency"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Timezone",
+            "default": "UTC"
+          }
+        },
+        "type": "object",
+        "required": [
+          "frequency"
+        ],
+        "title": "ScheduleIn"
+      },
       "SessionIn": {
         "properties": {
           "uid": {
@@ -1362,6 +1393,14 @@
       },
       "TeamIn": {
         "properties": {
+          "schedules": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScheduleIn"
+            },
+            "type": "object",
+            "maxProperties": 4,
+            "title": "Schedules"
+          },
           "ids": {
             "items": {
               "type": "string"

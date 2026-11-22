@@ -1,0 +1,42 @@
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          find web -name '*.js' -exec sh -ec 'for js do node --check "$js"; done' sh {} +
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.9'
+      - name: Install locked dependencies
+        working-directory: server
+        run: uv sync --locked --group dev
+      - name: Check Python syntax and names
+        working-directory: server
+        run: |
+          find app scripts ../scripts -name '*.py' -exec python -m py_compile {} +
+          uvx ruff@0.14.0 check --config pyproject.toml app scripts tests
+      - name: Create isolated demo fixtures
+        working-directory: server
+        run: .venv/bin/python scripts/seed_demo.py --db "$RUNNER_TEMP/demo.db"
+      - name: Run tests
+        working-directory: server
+        env:
+          DB_PATH: ${{ runner.temp }}/demo.db
+          INGEST_ON_START: '0'
+          INGEST_INTERVAL_MIN: '0'
+        run: .venv/bin/python -m pytest -q -W error

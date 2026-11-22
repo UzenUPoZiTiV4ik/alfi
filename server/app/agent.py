@@ -1,72 +1,112 @@
-"""агент: разбор события и чат.
+"""Аналитический агент: персональный разбор события и чат.
 
-разбор идёт по шагам context → plan → tools → check → synth → verify → critic → repair → final.
-каждый шаг пишется в run_steps и сразу уходит в браузер через SSE.
+Разбор (run_insight): context -> plan -> tools -> check -> synth -> verify -> critic -> repair -> final.
+Каждый шаг пишется в run_steps и сразу уходит в SSE. Агент написан без мультиагентных фреймворков:
+план и вызовы инструментов исполняет этот модуль, модели только предлагают план и пишут текст.
 """
 from __future__ import annotations
 
-import queue
+import asyncio
+import os
 import re
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from . import config, db, llm, news, nlp, profile, ranking, security, tools
 from .taxonomy import AREAS, FACTORS, ROLES, SECTORS
 
-SENTINEL = object()
+STREAM_PING = 10.0
+STREAM_TIMEOUT = 300.0
+STREAM_POLL = 0.25
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-class Run:
-    def __init__(self, kind: str, uid: str, role: str, news_id: str | None = None):
+
+@dataclass
+class RunHandle:
+    id: str
+
+
+# ---------- Run: шаги и поток событий ----------
+class Run(RunHandle):
+    def __init__(self, kind: str, uid: str, role: str, news_id: str | None = None, connection=None):
         self.id = uuid.uuid4().hex[:12]
         self.kind, self.uid, self.role, self.news_id = kind, uid, role, news_id
-        # журнал вместо очереди: второй подписчик видит прогон с начала
-        self.log: list = []
-        self.cv = threading.Condition()
         self.seq = 0
-        self.t0 = time.time()
         self.last = time.time()
-        db.ex("INSERT INTO runs(id,kind,uid,role,news_id,status,started) VALUES(?,?,?,?,?,?,?)",
-              (self.id, kind, uid, role, news_id, "running", now_iso()))
+        execute = connection.execute if connection is not None else db.ex
+        execute("INSERT INTO runs(id,kind,uid,role,news_id,status,started) VALUES(?,?,?,?,?,?,?)",
+                (self.id, kind, uid, role, news_id, "running", now_iso()))
 
     def emit(self, type_: str, title: str, data: dict | None = None) -> None:
         self.seq += 1
         ms = int((time.time() - self.last) * 1000)
         self.last = time.time()
-        ev = {"type": type_, "seq": self.seq, "title": title, "data": data or {}, "ms": ms, "run_id": self.id}
         db.ex("INSERT INTO run_steps(run_id,seq,type,title,data_json,ts,ms) VALUES(?,?,?,?,?,?,?)",
               (self.id, self.seq, type_, title, db.j(data or {}), now_iso(), ms))
-        with self.cv:
-            self.log.append(ev)
-            self.cv.notify_all()
 
     def cost(self) -> float:
         return float(db.q1("SELECT COALESCE(SUM(cost_rub),0) s FROM llm_calls WHERE run_id=?", (self.id,))["s"])
 
     def finish(self, status: str, result: Any = None) -> None:
-        db.ex("UPDATE runs SET status=?, finished=?, cost_rub=?, result_json=? WHERE id=?",
-              (status, now_iso(), self.cost(), db.j(result) if result is not None else None, self.id))
-        with self.cv:
-            self.log.append(SENTINEL)
-            self.cv.notify_all()
+        with db.transaction() as connection:
+            connection.execute("UPDATE runs SET status=?, finished=?, cost_rub=?, result_json=? WHERE id=?",
+                               (status, now_iso(), self.cost(), db.j(result) if result is not None else None, self.id))
+            connection.execute("DELETE FROM active_insights WHERE run_id=?", (self.id,))
 
-    def events(self, timeout: float = 300):
-        i = 0
-        while True:
-            with self.cv:
-                if i >= len(self.log) and not self.cv.wait_for(lambda: i < len(self.log), timeout=timeout):
-                    return
-                ev = self.log[i]
-            i += 1
-            if ev is SENTINEL:
-                return
-            yield ev
+
+def run_state(run_id: str, uid: str, role: str) -> dict | None:
+    row = db.q1("SELECT id,kind,news_id,status,started,finished FROM runs WHERE id=? AND uid=? AND role=?",
+                (run_id, uid, role))
+    if not row:
+        return None
+    outcome = row["status"]
+    row["status"] = "running" if outcome == "running" else "error" if outcome == "error" else "done"
+    row["outcome"] = outcome
+    row["run_id"] = row.pop("id")
+    row["last_seq"] = db.q1("SELECT COALESCE(MAX(seq),0) n FROM run_steps WHERE run_id=?", (run_id,))["n"]
+    final = db.q1("SELECT data_json FROM run_steps WHERE run_id=? AND type='final' ORDER BY seq DESC LIMIT 1", (run_id,))
+    payload = db.unj(final["data_json"], {}) if final else {}
+    row["result"] = payload.get("result") if row["kind"] == "insight" else payload or None
+    return row
+
+
+async def events(run_id: str, after_seq: int = 0):
+    # Journal first, independent cursors: a dropped connection never cancels a paid run.
+    last_activity = last_ping = time.monotonic()
+    while True:
+        # Read status FIRST: finish commits only after the last step. This avoids losing
+        # a final event committed between a read of an empty journal and a status read.
+        row = db.q1("SELECT status FROM runs WHERE id=?", (run_id,))
+        steps = db.q("SELECT seq,type,title,data_json,ms FROM run_steps WHERE run_id=? AND seq>? ORDER BY seq",
+                     (run_id, after_seq))
+        for step in steps:
+            after_seq = step["seq"]
+            step["data"] = db.unj(step.pop("data_json"), {})
+            yield {**step, "run_id": run_id}
+        if row["status"] != "running":
+            status = "error" if row["status"] == "error" else "done"
+            yield {"type": status, "status": status, "outcome": row["status"], "run_id": run_id}
+            return
+        instant = time.monotonic()
+        if steps:
+            last_activity = last_ping = instant
+        if instant - last_activity >= STREAM_TIMEOUT:
+            yield {"type": "timeout", "status": "timeout", "run_id": run_id}
+            return
+        if instant - last_ping >= STREAM_PING:
+            yield {"type": "ping", "run_id": run_id}
+            last_ping = instant
+        await asyncio.sleep(STREAM_POLL)
+
 
 def trace(run_id: str) -> dict | None:
     r = db.q1("SELECT id, kind, uid, role, news_id, status, started, finished, cost_rub FROM runs WHERE id=?", (run_id,))
@@ -78,6 +118,8 @@ def trace(run_id: str) -> dict | None:
     r["tools"] = db.q("SELECT tool, args_json, ok, ms, error FROM tool_audit WHERE run_id=? ORDER BY id", (run_id,))
     return r
 
+
+# ---------- Пул источников разбора ----------
 class Pool:
     """Все материалы, которые видел агент. Ссылаться можно только на id из пула."""
 
@@ -99,9 +141,12 @@ class Pool:
         keep = ("id", "kind", "title", "text", "source", "url", "page", "quote", "verified", "doc_id", "published", "stale", "chunk_kind")
         return {i: {k: v for k, v in self.items[i].items() if k in keep and v is not None} for i in ids if i in self.items}
 
+
 def feat_items(p: dict) -> list[dict]:
     return [{"id": f["id"], "kind": "feat", "title": f["label"], "text": f["value"]} for f in p["features"]]
 
+
+# ---------- Промпты ----------
 PLAN_PROMPT = """Ты планировщик аналитического агента Альфа-Банка для руководителей крупного бизнеса.
 Сегодня {date}. Пользователь: {role} (фокус: {focus}).
 Реши, каких данных не хватает, и составь план вызовов инструментов.
@@ -169,6 +214,7 @@ CHAT_PROMPT = """Ты Альфи, AI-аналитик Альфа-Банка в �
 Профиль компании:
 {profile}{insight}"""
 
+
 def fmt_ctx(pool: Pool, p: dict, main_id: str | None, reasons: list[dict] | None) -> str:
     out = ["ПРОФИЛЬ КОМПАНИИ (id признаков в квадратных скобках):", profile.brief(p, 6)]
     data = pool.of("data")
@@ -195,7 +241,10 @@ def fmt_ctx(pool: Pool, p: dict, main_id: str | None, reasons: list[dict] | None
         out.append("\nАНАЛИТИКА АЛЬФА-БАНКА: по теме ничего не найдено")
     return "\n".join(out)
 
+
+# ---------- Проверки ----------
 LISTS = ("risks", "opportunities", "actions", "scenarios", "impact_channels", "affected_areas")
+
 
 def _all_sourced(r: dict):
     yield "why_it_matters", r.get("why_it_matters") or {}
@@ -207,12 +256,14 @@ def _all_sourced(r: dict):
     for pt in (r.get("bank_view") or {}).get("points") or []:
         yield "bank_view", pt
 
+
 def _texts(r: dict) -> list[str]:
     out = [(r.get("what_happened") or {}).get("summary", ""), (r.get("why_it_matters") or {}).get("text", ""),
            (r.get("bank_view") or {}).get("summary", ""), r.get("headline", "")]
     for _, it in _all_sourced(r):
         out += [str(it.get(k, "")) for k in ("text", "title", "explanation", "trigger")]
     return [t for t in out if t]
+
 
 def normalize(r: dict) -> dict:
     r = r if isinstance(r, dict) else {}
@@ -226,16 +277,7 @@ def normalize(r: dict) -> dict:
             r[k] = []
 
     def objs(xs):  # модель иногда кладёт в список строки или числа: приводим к объектам
-        out = []
-        for x in xs:
-            if x in (None, ""):
-                continue
-            it = x if isinstance(x, dict) else {"text": str(x)}
-            if not it.get("sources") and isinstance(it.get("refs"), list):
-                it["sources"] = it["refs"]
-            it.setdefault("sources", [])   # старые разборы и чужие форматы живут без sources
-            out.append(it)
-        return out
+        return [x if isinstance(x, dict) else {"text": str(x), "sources": []} for x in xs if x not in (None, "")]
 
     for k in LISTS:
         r[k] = objs(r[k])
@@ -256,6 +298,7 @@ def normalize(r: dict) -> dict:
     except (TypeError, ValueError):
         r["confidence"] = 0.5
     return r
+
 
 def verify(r: dict, pool: Pool, main_text: str) -> list[dict]:
     """9 правил. Невалидные ссылки вычищаются, но правило фиксирует нарушение."""
@@ -280,7 +323,7 @@ def verify(r: dict, pool: Pool, main_text: str) -> list[dict]:
         if nb:
             wrong += nb
             pt["sources"] = [s for s in pt["sources"] if s.startswith("bank:")]
-        # текст рядом со ссылкой должен опираться на этот фрагмент
+        # утверждение рядом со ссылкой должно реально опираться на этот фрагмент
         st = set(nlp.stems(pt.get("text", "")))
         src = set(nlp.stems(" ".join(pool.items[s].get("text", "") + " " + (pool.items[s].get("quote") or "") for s in pt["sources"])))
         sup = len(st & src) / max(1, len(st))
@@ -293,7 +336,7 @@ def verify(r: dict, pool: Pool, main_text: str) -> list[dict]:
                   or "все пункты со ссылками на аналитику банка"})
 
     has_bank = bool(pool.of("bank"))
-    used = any(s.startswith("bank:") for _, it in _all_sourced(r) for s in (it.get("sources") or []))
+    used = any(s.startswith("bank:") for _, it in _all_sourced(r) for s in it["sources"])
     rules.append({"id": "bank_used", "name": "Найденная аналитика банка использована", "ok": used or not has_bank,
                   "detail": "использована" if used else ("найдена, но не использована" if has_bank else "по теме нет материалов банка")})
 
@@ -320,6 +363,7 @@ def verify(r: dict, pool: Pool, main_text: str) -> list[dict]:
     rules.append({"id": "has_action", "name": "Есть хотя бы одно действие", "ok": bool(r["actions"]), "detail": f"действий: {len(r['actions'])}"})
     return rules
 
+
 def attribute(r: dict) -> None:
     """basis у каждого пункта: bank (только аналитика банка), bank+ai (банк и выводы AI), ai."""
     for _, it in _all_sourced(r):
@@ -327,13 +371,19 @@ def attribute(r: dict) -> None:
         b = [x for x in s if x.startswith("bank:")]
         it["basis"] = "bank" if b and len(b) == len(s) else "bank+ai" if b else "ai"
 
+
 def referenced(r: dict) -> set[str]:
     return {s for _, it in _all_sourced(r) for s in it.get("sources", [])}
 
+
+# ---------- Разбор ----------
 _running: dict[str, Run] = {}
 _run_lock = threading.Lock()
 
+
 def cached(uid: str, role: str, news_id: str) -> dict | None:
+    if not news.get(news_id, uid=uid):
+        return None
     r = db.q1("SELECT result_json, run_id, created FROM insights WHERE key=? AND news_id=?", (ranking.pkey(uid, role), news_id))
     if not r:
         return None
@@ -342,27 +392,59 @@ def cached(uid: str, role: str, news_id: str) -> dict | None:
         res.setdefault("meta", {})["cached_at"] = r["created"]
     return res
 
-def start_insight(uid: str, role: str, news_id: str, force: bool = False) -> Run:
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+
+def start_insight(uid: str, role: str, news_id: str, force: bool = False,
+                  on_new: Callable | None = None) -> RunHandle:
     key = f"{uid}|{role}|{news_id}"
     with _run_lock:
-        if key in _running and not force:
+        if key in _running:
             return _running[key]
-        run = Run("insight", uid, role, news_id)
+        with db.transaction() as connection:
+            address = (uid, role, news_id)
+            existing = db.q1("SELECT run_id,worker_pid FROM active_insights WHERE uid=? AND role=? AND news_id=?", address)
+            if existing:
+                if _alive(existing["worker_pid"]):
+                    return RunHandle(existing["run_id"])
+                # Local SQLite outlived its worker. Preserve the old journal for reconnects.
+                connection.execute("UPDATE runs SET status='error',finished=? WHERE id=? AND status='running'",
+                                   (now_iso(), existing["run_id"]))
+            if on_new:
+                on_new()
+            run = Run("insight", uid, role, news_id, connection)
+            connection.execute("INSERT OR REPLACE INTO active_insights VALUES(?,?,?,?,?)", (*address, run.id, os.getpid()))
         _running[key] = run
 
     def go():
         try:
             run_insight(run, force)
         except Exception as e:  # noqa: BLE001
-            import traceback
-            run.emit("error", "Разбор прервался", {"message": f"{type(e).__name__}: {e}"[:300], "where": traceback.format_exc()[-600:]})
+            run.emit("failure", "Разбор прервался", {"message": f"{type(e).__name__}: {e}"[:300]})
             run.finish("error")
         finally:
             with _run_lock:
-                _running.pop(key, None)
+                if _running.get(key) is run:
+                    del _running[key]
 
-    threading.Thread(target=go, daemon=True).start()
+    try:
+        threading.Thread(target=go, daemon=True).start()
+    except RuntimeError:
+        run.finish("error")
+        with _run_lock:
+            if _running.get(key) is run:
+                del _running[key]
+        raise
     return run
+
 
 def run_insight(run: Run, force: bool = False) -> None:
     uid, role, news_id = run.uid, run.role, run.news_id
@@ -395,6 +477,10 @@ def run_insight(run: Run, force: bool = False) -> None:
         run.finish("budget")
         return
 
+    if config.INSIGHT_DEMO == "1" or (config.INSIGHT_DEMO == "auto" and not llm.reachable()):
+        demo_insight(run, p, main, pool, sc, rl, ctx)
+        return
+
     # 2. plan
     avail = tools.schemas_for(role)
     tdesc = "; ".join(f"{t['function']['name']}({', '.join(t['function']['parameters']['properties'])}): {t['function']['description']}" for t in avail)
@@ -420,7 +506,7 @@ def run_insight(run: Run, force: bool = False) -> None:
                                        "steps": [{"tool": s["tool"], "args": s.get("args", {}), "why": s.get("why", "")} for s in steps],
                                        "forced_bank": forced, "model": pr.get("model")})
 
-    # 3. инструменты — параллельно, они друг от друга не зависят
+    # 3. tools (параллельно: инструменты независимы)
     def exec_step(s):
         t0 = time.time()
         try:
@@ -437,7 +523,7 @@ def run_insight(run: Run, force: bool = False) -> None:
                                                      "ok": out is not None, "summary": out["summary"][:300] if out else err,
                                                      "n": len(out["items"]) if out else 0, "new": len(new), "ids": new[:8], "ms": ms})
 
-    # 4. проверяем, хватает ли данных
+    # 4. check: полнота данных и адаптация плана
     checks, added = [], 0
     if not pool.of("bank"):
         q = " ".join(FACTORS[f]["label"] for f in sc["factors"][:3]) + " " + SECTORS[p["sector"]]["label"]
@@ -479,7 +565,7 @@ def run_insight(run: Run, force: bool = False) -> None:
     rules = verify(res, pool, main_text)
     run.emit("verify", "Проверил правилами", {"rules": rules, "passed": sum(r["ok"] for r in rules), "total": len(rules)})
 
-    # 7. критик — другая модель, чтобы не хвалить саму себя
+    # 7. critic (другая семья моделей)
     critic = critique(res, pool, run)
     if critic:
         run.emit("critic", "Независимая проверка", critic)
@@ -530,6 +616,89 @@ def run_insight(run: Run, force: bool = False) -> None:
     run.emit("final", "Разбор готов", {"result": res, "cached": False})
     run.finish("ok", {"confidence": conf})
 
+
+def demo_insight(run: Run, p: dict, main: dict, pool: Pool, sc: dict, rl: dict, ctx: dict) -> None:
+    """Разбор по шаблону, когда шлюз LLM недоступен: те же шаги и та же структура, что у настоящего,
+    но тексты собраны из данных ленты (триаж), профиля компании и найденной аналитики банка. В кэш не пишется."""
+    uid, role, news_id = run.uid, run.role, run.news_id
+    pause = lambda: time.sleep(0.7)
+    steps = [{"tool": "search_bank_analytics", "why": "позиция банка по теме события",
+              "args": {"query": main["title"], "factors": sc["factors"][:3], "sectors": [p["sector"]]}}]
+    pause()
+    run.emit("plan", "Составил план", {"goal": "Оценить влияние события на компанию", "hypotheses": [], "steps": steps, "forced_bank": True, "model": "demo"})
+    t0 = time.time()
+    try:
+        out = tools.call("search_bank_analytics", steps[0]["args"], ctx)
+    except tools.ToolError:
+        out = {"items": [], "summary": "аналитика банка недоступна"}
+    new = pool.add(out["items"])
+    pause()
+    run.emit("tool", "Инструмент search_bank_analytics", {"tool": "search_bank_analytics", "args": steps[0]["args"], "why": steps[0]["why"], "ok": True,
+                                                          "summary": out["summary"][:300], "n": len(out["items"]), "new": len(new), "ids": new[:8], "ms": int((time.time() - t0) * 1000)})
+    pause()
+    run.emit("check", "Проверил полноту данных", {"checks": [{"text": "Сервис анализа недоступен: разбор собран по шаблону", "ok": False}], "added": 0})
+
+    tri = db.q1("SELECT data_json FROM triage WHERE key=? AND news_id=?", (ranking.pkey(uid, role), news_id))
+    t = db.unj(tri["data_json"], {}) if tri else {}
+    t = t if isinstance(t, dict) else {}
+    kind = t.get("kind") if t.get("kind") in ("risk", "chance", "mixed") else "mixed"
+    mid = main["id"]
+    areas = [a for a in (t.get("areas") or []) if isinstance(a, dict) and a.get("id") in AREAS]
+    if not areas:
+        areas = ranking.areas_for(sc["factors"], p, sc["reasons"])
+    areas = [{"area": a["id"], "impact": a.get("impact") if a.get("impact") in ("positive", "negative", "mixed") else
+              {"risk": "negative", "chance": "positive"}.get(kind, "mixed"), "effect": str(a.get("effect") or "")[:160], "sources": [mid]} for a in areas[:4]]
+    feats = [f for f in p["features"] if f["id"] in ("feat:sector", "feat:fts", "feat:products", "feat:region")]
+    why = t.get("why") or ("Событие касается компании через " + "; ".join((r["text"][:1].lower() + r["text"][1:] if r["text"][1:2].islower() else r["text"]) for r in sc["reasons"][:3]) + ".")
+    text = (main.get("text") or "").strip()
+    facts = [{"text": s.strip() + ".", "status": "reported", "sources": [mid]} for s in re.split(r"(?<=[.!?])\s+", text) if 40 <= len(s.strip()) <= 260][:3]
+    bank = pool.of("bank")[:3]
+    neg = [a for a in areas if a["impact"] != "positive"]
+    pos = [a for a in areas if a["impact"] != "negative"]
+    action = t.get("action") if t.get("action") and not re.match(r"^(Разобрать|Не требуется)", t.get("action")) else "Оценить влияние события на ключевые показатели"
+    urgency = int(t.get("urgency") or 2)
+    res = normalize({
+        "headline": t.get("headline") or main["title"], "kind": kind,
+        "what_happened": {"summary": text[:320], "facts": facts},
+        "why_it_matters": {"text": why, "sources": [mid] + [f["id"] for f in feats[:2]]},
+        "affected_areas": areas,
+        "risks": [{"title": AREAS[a["area"]], "text": a["effect"] or "Возможное ухудшение показателей в этой сфере.", "probability": "medium",
+                   "horizon": "1–3 месяца", "sources": [mid]} for a in neg[:3]],
+        "opportunities": [{"title": AREAS[a["area"]], "text": a["effect"] or "Возможность укрепить позицию в этой сфере.", "horizon": "3–6 месяцев",
+                           "sources": [mid]} for a in pos[:2]],
+        "bank_view": {"summary": "Что пишет аналитика Альфа-Банка по теме события." if bank else "",
+                      "points": [{"text": cut_text(b["text"].split(" Цитата: ")[0], 260), "sources": [b["id"]]} for b in bank]},
+        "scenarios": [{"name": "базовый", "text": "Ситуация развивается так, как описано в новости, эффект для компании умеренный.", "trigger": "подтверждение в официальных источниках", "sources": [mid]},
+                      {"name": "негативный", "text": "Эффект усиливается и затрагивает выручку и расчёты сильнее ожидаемого.", "trigger": "новые ограничения или рост цен", "sources": [mid]}],
+        "actions": [{"title": action, "text": "Сверить с текущими контрактами, остатками и графиком платежей.", "urgency": "now" if urgency >= 3 else "week",
+                     "owner": rl["label"], "sources": [mid]},
+                    {"title": "Обсудить ситуацию с менеджером банка", "text": "Уточнить условия финансирования и инструменты защиты от рисков.", "urgency": "month",
+                     "owner": rl["label"], "product": "Кредиты" if any(f["id"] == "feat:products" and "Кредит" in str(f["value"]) for f in p["features"]) else None, "sources": [mid]}],
+        "questions": ["Какая доля выручки и закупок зависит от этого события?", "Какие контракты и платежи попадают под изменения в ближайший месяц?"],
+        "data_gaps": [],
+        "confidence": 0.5,
+    })
+    pause()
+    run.emit("llm", "Написал разбор", {"stage": "demo", "model": "demo", "tokens": 0, "prompt_tokens": 0, "cost": 0, "ms": 0})
+    refs = referenced(res)
+    res["sources"] = pool.view(refs | {mid})
+    res["rules"] = []
+    res["critic"] = None
+    res["news"] = {"id": news_id, "title": main["title"], "source": main.get("source"), "url": main.get("url"), "published": main.get("published")}
+    res["reasons"] = sc["reasons"]
+    res["demo"] = True
+    res["meta"] = {"run_id": run.id, "cost_rub": 0, "seconds": round(time.time() - run.t0, 1), "sources_seen": len(pool.items), "sources_used": len(refs),
+                   "created": now_iso(), "role": rl["label"], "demo": True}
+    pause()
+    run.emit("final", "Разбор готов", {"result": res, "cached": False, "demo": True})
+    run.finish("ok", {"demo": True})
+
+
+def cut_text(s: str, n: int) -> str:
+    s = re.sub(r"\s+", " ", str(s or "")).strip()
+    return s if len(s) <= n else s[: n - 1].rsplit(" ", 1)[0] + "…"
+
+
 def _src_digest(pool: Pool, ids: set[str]) -> str:
     out = []
     for i in sorted(ids):
@@ -539,13 +708,14 @@ def _src_digest(pool: Pool, ids: set[str]) -> str:
             out.append(f"[{i}] {it.get('title', '')}: {(it.get('text') or '')[:lim]}" + (f" Цитата: «{it['quote']}»" if it.get("quote") else ""))
     return "\n".join(out)
 
+
 def critique(res: dict, pool: Pool, run: Run) -> dict | None:
     show = {k: v for k, v in res.items() if k not in ("sources",)}
     ids = referenced(res) | {i for i, it in pool.items.items() if it["kind"] in ("feat", "data")}
     body = f"ИСТОЧНИКИ (признаки компании feat:/data: это данные банка о клиенте, они подтверждают свои цифры):\n{security.wrap_untrusted(_src_digest(pool, ids))}\n\nРАЗБОР:\n{db.j(show)[:7000]}"
     try:
         c, cr = llm.chat_json([{"role": "system", "content": CRITIC_PROMPT}, {"role": "user", "content": body}],
-                              role="critic", purpose="critic", run_id=run.id, max_tokens=1500, temperature=0.1, deep=True, reasoning=False)
+                              role="critic", purpose="critic", run_id=run.id, max_tokens=1500, temperature=0.1, deep=True)
     except (llm.LLMError, ValueError) as e:
         run.emit("guard", "Критик недоступен", {"kind": "critic", "text": str(e)[:200]})
         return None
@@ -562,8 +732,10 @@ def critique(res: dict, pool: Pool, run: Run) -> dict | None:
             "missing_data": [m for m in (c.get("missing_data") or []) if isinstance(m, dict)][:3],
             "model": cr["model"], "cost": round(cr["cost"], 3)}
 
+
 PATCHABLE = {"headline", "kind", "what_happened", "why_it_matters", "impact_channels", "affected_areas", "risks", "opportunities", "bank_view",
              "scenarios", "actions", "questions", "data_gaps", "confidence"}
+
 
 def repair(res: dict, pool: Pool, p: dict, main_id: str, reasons: list, failed: list, critic: dict | None, run: Run) -> tuple[dict, list]:
     """Патч только изменённых полей: полный пересинтез дороже и обрезается по лимиту токенов."""
@@ -581,12 +753,16 @@ def repair(res: dict, pool: Pool, p: dict, main_id: str, reasons: list, failed: 
             changed.append(k)
     return normalize(res), changed
 
+
+# ---------- Чат ----------
 REF_RX = re.compile(r"\[((?:news|bank|feat|data|web):[^\]\s,]+)\]")
 
+
 def chat_key(uid: str, role: str, helper: str | None = None) -> str:
-    # у каждого помощника свой чат, у Альфи ключ без суффикса
+    # у каждого помощника своя переписка; у Альфи ключ без суффикса, как раньше
     h = re.sub(r"[^a-z0-9-]", "", (helper or "").lower())[:40]
     return f"chat:{uid}|{role}" + (f"|{h}" if h and h != "alfi" else "")
+
 
 def start_chat(uid: str, role: str, message: str, news_id: str | None, helper: dict | None = None) -> Run:
     run = Run("chat", uid, role, news_id)
@@ -595,11 +771,12 @@ def start_chat(uid: str, role: str, message: str, news_id: str | None, helper: d
         try:
             run_chat(run, message, helper)
         except Exception as e:  # noqa: BLE001
-            run.emit("error", "Ответ не получился", {"message": f"{type(e).__name__}: {e}"[:300]})
+            run.emit("failure", "Ответ не получился", {"message": f"{type(e).__name__}: {e}"[:300]})
             run.finish("error")
 
     threading.Thread(target=go, daemon=True).start()
     return run
+
 
 def run_chat(run: Run, message: str, helper: dict | None = None) -> None:
     uid, role, news_id = run.uid, run.role, run.news_id
@@ -677,7 +854,7 @@ def run_chat(run: Run, message: str, helper: dict | None = None) -> None:
                 content = f"Ошибка инструмента: {e}"
                 run.emit("tool", f"Инструмент {name}", {"tool": name, "args": args, "ok": False, "summary": str(e)[:200], "ms": int((time.time() - t0) * 1000)})
             msgs.append({"role": "tool", "tool_call_id": tc.get("id"), "content": content})
-    # оставляем только те ссылки, которые агент реально видел
+    # ссылки только на то, что агент реально видел; выдуманные id вычищаются
     found = REF_RX.findall(answer)
     bad = [x for x in found if x not in pool.items]
     for b in bad:
@@ -690,8 +867,10 @@ def run_chat(run: Run, message: str, helper: dict | None = None) -> None:
     run.emit("final", "Ответ", {"text": answer.strip(), "refs": refs, "cost": round(run.cost(), 3)})
     run.finish("ok")
 
+
 def chat_history(uid: str, role: str, helper: str | None = None) -> list[dict]:
     return db.kv_get(chat_key(uid, role, helper), [])
+
 
 def chat_clear(uid: str, role: str, helper: str | None = None) -> None:
     db.kv_del(chat_key(uid, role, helper))

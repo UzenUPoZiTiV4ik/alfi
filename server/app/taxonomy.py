@@ -1,12 +1,15 @@
-"""справочники: отрасли, факторы, темы, роли, сферы бизнеса, доверие к источникам.
+"""Справочники: отрасли (по ОКВЭД и словам), факторы влияния, темы, роли, доверие к источникам.
 
-слова задаются основами, поэтому «пшеница» и «пшеницы» ловятся одной основой.
+Слова задаются основами (стемами в нижнем регистре): совпадение засчитывается,
+если слово в тексте начинается с основы. Так «пшеница», «пшеницы», «пшеничный» ловятся одной основой.
 """
 from __future__ import annotations
 
 import re
 from functools import lru_cache
 
+# ---------- Отрасли ----------
+# okved: префиксы кода, от более точных к общим (порядок важен только внутри SECTOR_RULES)
 SECTORS: dict[str, dict] = {
     "agro":         {"label": "Зерно и сельхоз",         "words": ["пшениц", "зерн", "урожа", "агро", "сельхоз", "удобрен", "ячмен", "кукуруз", "подсолнеч", "масличн", "посев", "элеватор", "минсельхоз", "фермер", "аграри", "экспортн пошлин"]},
     "food":         {"label": "Продукты питания",        "words": ["продовольств", "продукт питан", "молок", "молочн", "мяс", "птиц", "сахар", "рыб", "хлеб", "кондитер", "fmcg", "пищев", "масло", "яйц"]},
@@ -29,6 +32,7 @@ SECTORS: dict[str, dict] = {
     "services":     {"label": "Услуги",                  "words": ["услуг", "гостиниц", "ресторан", "туризм", "общепит", "консалтинг", "аутсорс", "реклам", "охран"]},
 }
 
+# (префикс ОКВЭД, отрасль): проверяется самый длинный подходящий префикс
 SECTOR_RULES: list[tuple[str, str]] = [
     ("01", "agro"), ("02", "materials"), ("03", "food"),
     ("05", "metals"), ("06", "fuel"), ("07", "metals"), ("08", "metals"), ("09", "fuel"),
@@ -54,14 +58,17 @@ SECTOR_RULES: list[tuple[str, str]] = [
 ]
 _RULES = sorted(SECTOR_RULES, key=lambda r: -len(r[0]))
 
+
 def sector_of(okved: str | None) -> str:
     code = (okved or "").strip()
     for prefix, sec in _RULES:
-        # 46.21 входит в 46.2, а тот в 46 — берём самый длинный префикс
+        # ОКВЭД иерархичен: 46.21 входит в 46.2, а тот в 46
         if code.startswith(prefix):
             return sec
     return "services"
 
+
+# ---------- Факторы влияния ----------
 FACTORS: dict[str, dict] = {
     "rate":       {"label": "Ключевая ставка",          "topic": "money", "words": ["ключев ставк", "ставк цб", "ставку цб", "денежно-кредитн", "дкп", "набиуллин", "заседан совет директоров банка росс", "снижени ставк", "повышени ставк", "смягчени", "ужесточени", "ruonia", "процентн ставк"]},
     "fx":         {"label": "Курс рубля и валюты",      "topic": "money", "words": ["курс рубл", "курс доллар", "курс юан", "курс евро", "юан", "доллар", "валют", "девальвац", "укреплени рубл", "ослаблени рубл", "рубль", "рубля"]},
@@ -81,6 +88,7 @@ FACTORS: dict[str, dict] = {
     "realty":     {"label": "Недвижимость и ипотека",   "topic": "sales", "words": ["ипотек", "недвижим", "жиль", "новостро", "застройщик", "квадратн метр", "аренд", "эскроу", "семейн ипотек"]},
 }
 
+# ---------- Темы (помощники в команде Альфи) ----------
 TOPICS: dict[str, dict] = {
     "money":  {"label": "Деньги",  "watch": "Ставка, курс, кредиты"},
     "tax":    {"label": "Налоги",  "watch": "НДС, прибыль, пошлины"},
@@ -90,6 +98,7 @@ TOPICS: dict[str, dict] = {
     "people": {"label": "Люди",    "watch": "Кадры, зарплаты, МРОТ"},
 }
 
+# ---------- Роли пользователя ----------
 ROLES: dict[str, dict] = {
     "owner":      {"label": "Собственник",       "focus": "стратегия, рост стоимости бизнеса, группа компаний, крупные риски",
                    "boost": {"demand": 1.2, "regulation": 1.1, "trade": 1.15, "budget": 1.1, "realty": 1.1}},
@@ -101,10 +110,12 @@ ROLES: dict[str, dict] = {
                    "boost": {"rate": 1.4, "fx": 1.4, "credit": 1.2, "budget": 1.0, "tax": 0.8}},
     "accountant": {"label": "Главный бухгалтер", "focus": "налоги, отчётность, требования регуляторов, сроки",
                    "boost": {"tax": 1.5, "regulation": 1.35, "rate": 0.7, "fx": 0.75, "demand": 0.7}},
-    "clevel":     {"label": "Другой C-level",    "focus": "своё направление бизнеса, операционные и рыночные риски",
+    "clevel":     {"label": "Другой руководитель", "focus": "своё направление бизнеса, операционные и рыночные риски",
                    "boost": {"demand": 1.1, "logistics": 1.1, "regulation": 1.1}},
 }
 
+# ---------- Сферы бизнеса, на которые влияет событие ----------
+# Новость меняет не только «цену»: одна и та же ставка бьёт по долгу, по спросу покупателей и по остаткам.
 AREAS: dict[str, str] = {
     "revenue": "Выручка и цены продаж",
     "costs": "Закупки и издержки",
@@ -120,6 +131,7 @@ AREAS: dict[str, str] = {
     "strategy": "Рынки и стратегия",
 }
 
+# Фактор -> сферы по умолчанию (первая самая вероятная). Уточняется признаками компании в ranking.areas_for.
 FACTOR_AREAS: dict[str, list[str]] = {
     "rate": ["debt", "liquidity", "customers"],
     "fx": ["fx", "revenue", "costs"],
@@ -138,10 +150,12 @@ FACTOR_AREAS: dict[str, list[str]] = {
     "energy": ["costs"],
     "realty": ["customers", "debt"],
 }
+# Для кого сырьё это товар на продажу, а не закупка: у них цена сырья бьёт по выручке
 SELLER_OF: dict[str, set[str]] = {
     "oil": {"fuel"}, "metals": {"metals"}, "agro": {"agro"}, "energy": {"energy"}, "realty": {"construction"},
 }
 
+# ---------- Доверие к источникам (0..1) ----------
 SOURCE_TRUST: dict[str, float] = {
     "cbr": 1.0, "alfa": 1.0, "interfax": 0.92, "tass": 0.88, "kommersant": 0.88, "vedomosti": 0.88,
     "rbc": 0.85, "finam": 0.75, "banki": 0.7, "lenta": 0.7, "frank": 0.72, "retail": 0.7,
@@ -157,6 +171,7 @@ DOMAIN_SOURCES: dict[str, tuple[str, str]] = {
     "alfabank.ru": ("alfa", "Альфа-Банк"),
 }
 
+# ---------- Страны ВЭД и регионы ----------
 COUNTRY_STEMS: dict[str, list[str]] = {
     "ОАЭ": ["оаэ", "эмират", "дуба"], "АЛЖИР": ["алжир"], "ИНДИЯ": ["индия", "индии", "индийск"], "КИТАЙ": ["кита", "кнр", "пекин"],
     "ТУРЦИЯ": ["турц", "турецк"], "КАЗАХСТАН": ["казахстан"], "БЕЛАРУСЬ": ["беларус", "белорус"], "ИРАН": ["иран"],
@@ -169,6 +184,7 @@ COUNTRY_STEMS: dict[str, list[str]] = {
 
 _ADJ_END = re.compile(r"(ская|ский|ское|ской|ая|ый|ий|ое|ой|а|ь|я)$")
 
+
 def region_stem(region: str | None) -> str:
     """«Ростовская область» -> «ростов», «г. Москва» -> «москв»."""
     w = (region or "").lower().replace("г.", "").replace("республика", "").strip().split()
@@ -177,25 +193,32 @@ def region_stem(region: str | None) -> str:
     s = _ADJ_END.sub("", w[0])
     return s if len(s) >= 4 else ""
 
+
 def country_list(raw: str | None) -> list[str]:
     """FTS_COUNTRY_NAME часто содержит несколько стран через запятую."""
     return [c.strip().upper() for c in re.split(r"[,;/]", raw or "") if c.strip()]
 
+
 def country_stems(name: str) -> list[str]:
     return COUNTRY_STEMS.get(name.upper(), [name.lower()[: max(4, len(name) - 2)]])
 
+
+# ---------- Совпадения слов ----------
 @lru_cache(maxsize=4096)
 def _rx(stem: str) -> re.Pattern:
     parts = [re.escape(p) + r"[а-яёa-z0-9-]*" for p in stem.strip().split()]
     return re.compile(r"(?<![а-яёa-z0-9])" + r"\s+".join(parts), re.IGNORECASE)
+
 
 def count_hits(text: str, stems: list[str]) -> int:
     """Сколько разных основ встретилось в тексте."""
     t = text.lower()
     return sum(1 for s in stems if _rx(s).search(t))
 
+
 def factor_label(fid: str) -> str:
     return FACTORS.get(fid, {}).get("label", fid)
+
 
 def sector_label(sid: str) -> str:
     return SECTORS.get(sid, {}).get("label", sid)

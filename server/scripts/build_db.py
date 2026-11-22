@@ -1,12 +1,20 @@
-"""csv кейса -> sqlite: companies, payments, persons, group_stats.
+"""CSV кейса -> SQLite (companies, payments, persons, group_stats).
 
-запуск: uv run python -m scripts.build_db
+Запуск: uv run python -m scripts.build_db
+Входные файлы в data/raw/ (скачиваются scripts/fetch_data.py).
 """
 from __future__ import annotations
 
 import csv
+import math
+import os
+import sqlite3
 import sys
+import tempfile
 import time
+from contextlib import closing
+from datetime import datetime, timezone
+from pathlib import Path
 
 from app import config, db
 from app.taxonomy import sector_of
@@ -22,62 +30,104 @@ COLS = [
 NUM = {"negative", "rko", "gar", "loa", "lea", "dep", "zpp", "fts", "factoring", "revenue"}
 
 
-def num(v: str) -> float | None:
-    try:
-        return float(v) if v not in ("", None) else None
-    except ValueError:
+COMPANY_COLS = [dst for _, dst in COLS] + ["sector"]
+
+
+def csv_rows(filename: str, required: list[str], keys: list[str]):
+    path = config.RAW_DIR / filename
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream, delimiter=";", strict=True)
+        header = reader.fieldnames or []
+        if not set(required) <= set(header) or len(set(header)) != len(header):
+            raise ValueError(f"{path}: неверные заголовки CSV")
+        count = 0
+        for row in reader:
+            if None in row or None in row.values() or any(not row[k].strip() for k in keys):
+                raise ValueError(f"{path}:{reader.line_num}: неверная структура строки или пустой ID")
+            count += 1
+            yield row
+        if not count:
+            raise ValueError(f"{path}: нет строк данных")
+
+
+def num(value: str) -> float | None:
+    if not value.strip():
         return None
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"Некорректное число {value!r}")
+    return number
+
+
+def company_rows():
+    for row in csv_rows("df_Uid_data_hack.csv", [src for src, _ in COLS], ["SYNTHETIC_U"]):
+        if row["SYNTHETIC_U"].startswith("U_TEST_"):
+            raise ValueError("U_TEST_ зарезервирован для компаний, созданных пользователями")
+        values = [num(row[src]) if dst in NUM else (row[src] or None) for src, dst in COLS]
+        yield [*values, sector_of(row["MAINOKVED_CODE"])]
+
+
+def payment_rows():
+    cols = ["BENEFICIARY", "PAYER", "PAY_AMT", "PAY_CNT"]
+    for row in csv_rows("df_Uid_payment_hack.csv", cols, cols[:2]):
+        count = num(row["PAY_CNT"]) or 0.0
+        if not count.is_integer():
+            raise ValueError(f"PAY_CNT должен быть целым: {count}")
+        yield row["BENEFICIARY"], row["PAYER"], num(row["PAY_AMT"]) or 0.0, int(count)
+
+
+def stage_inputs(stage: sqlite3.Connection) -> None:
+    # Временная SQLite на диске ограничивает расход памяти и фиксирует проверенную версию CSV.
+    columns = ",".join(COMPANY_COLS)
+    placeholders = ",".join("?" for _ in COMPANY_COLS)
+    stage.execute(f"CREATE TABLE companies({columns}, PRIMARY KEY(uid))")
+    stage.execute("CREATE TABLE payments(beneficiary,payer,amt,cnt)")
+    stage.execute("CREATE TABLE persons(fid,city,rc,uid)")
+    stage.executemany(f"INSERT INTO companies VALUES({placeholders}) ON CONFLICT(uid) DO NOTHING", company_rows())
+    stage.executemany("INSERT INTO payments VALUES(?,?,?,?)", payment_rows())
+    cols = ["SYNTHETIC_F", "CITY_NAME", "RC_NAME", "SYNTHETIC_U"]
+    rows = csv_rows("df_Fid_Uid_link_hack.csv", cols, ["SYNTHETIC_F", "SYNTHETIC_U"])
+    stage.executemany("INSERT INTO persons VALUES(?,?,?,?)", (tuple(row[k] for k in cols) for row in rows))
+    stage.commit()
+
+
+def backup(path: Path) -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    fd, filename = tempfile.mkstemp(prefix=f"{path.name}.{stamp}.", suffix=".bak", dir=path.parent)
+    os.close(fd)
+    dest = Path(filename)
+    try:
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as src:
+            with closing(sqlite3.connect(dest)) as target:
+                src.backup(target)  # Включает подтверждённые записи из WAL.
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+    return dest
 
 
 def main() -> None:
-    t0 = time.time()
-    if config.DB_PATH.exists():
-        config.DB_PATH.unlink()
-        for ext in ("-wal", "-shm"):
-            p = config.DB_PATH.with_name(config.DB_PATH.name + ext)
-            if p.exists():
-                p.unlink()
-    db.init()
-    c = db.conn()
-
-    seen: set[str] = set()  # в CSV есть дубли SYNTHETIC_U
-    rows = []
-    with open(config.RAW_DIR / "df_Uid_data_hack.csv", encoding="utf-8") as f:
-        for r in csv.DictReader(f, delimiter=";"):
-            uid = r["SYNTHETIC_U"]
-            if uid in seen:
-                continue
-            seen.add(uid)
-            vals = [num(r[src]) if dst in NUM else (r[src] or None) for src, dst in COLS]
-            vals.append(sector_of(r["MAINOKVED_CODE"]))
-            rows.append(vals)
-    names = [d for _, d in COLS] + ["sector"]
-    c.executemany(f"INSERT INTO companies({','.join(names)}) VALUES({','.join('?' * len(names))})", rows)
-    print(f"companies: {len(rows)}")
-
-    with open(config.RAW_DIR / "df_Uid_payment_hack.csv", encoding="utf-8") as f:
-        rd = csv.DictReader(f, delimiter=";")
-        batch, n = [], 0
-        for r in rd:
-            batch.append((r["BENEFICIARY"], r["PAYER"], num(r["PAY_AMT"]) or 0.0, int(float(r["PAY_CNT"] or 0))))
-            if len(batch) >= 100_000:
-                c.executemany("INSERT INTO payments VALUES(?,?,?,?)", batch)
-                n += len(batch)
-                batch = []
-        c.executemany("INSERT INTO payments VALUES(?,?,?,?)", batch)
-        print(f"payments: {n + len(batch)}")
-
-    with open(config.RAW_DIR / "df_Fid_Uid_link_hack.csv", encoding="utf-8") as f:
-        prs = [(r["SYNTHETIC_F"], r["CITY_NAME"], r["RC_NAME"], r["SYNTHETIC_U"]) for r in csv.DictReader(f, delimiter=";")]
-    c.executemany("INSERT INTO persons VALUES(?,?,?,?)", prs)
-    print(f"persons links: {len(prs)}")
-
-    c.execute("""INSERT INTO group_stats SELECT group_id, COUNT(*), SUM(COALESCE(revenue,0))
-                 FROM companies WHERE group_id IS NOT NULL GROUP BY group_id""")
-    c.commit()
-    big = db.q1("SELECT COUNT(*) n FROM companies WHERE revenue >= 15e9")["n"]
-    bigg = db.q1("SELECT COUNT(*) n FROM group_stats WHERE revenue >= 15e9")["n"]
-    print(f"компаний от 15 млрд: {big}, групп от 15 млрд: {bigg}, {time.time() - t0:.1f} с", file=sys.stderr)
+    started = time.monotonic()
+    with closing(sqlite3.connect("")) as stage:
+        stage_inputs(stage)
+        if config.DB_PATH.exists():
+            print(f"Резервная копия: {backup(config.DB_PATH)}", file=sys.stderr)
+        db.init()
+        with db.transaction() as connection:
+            connection.execute("DELETE FROM companies WHERE uid NOT GLOB 'U_TEST_*'")
+            connection.execute("DELETE FROM payments")
+            connection.execute("DELETE FROM persons")
+            connection.execute("DELETE FROM group_stats")
+            tables = {"companies": COMPANY_COLS, "payments": ["beneficiary", "payer", "amt", "cnt"],
+                      "persons": ["fid", "city", "rc", "uid"]}
+            for table, columns in tables.items():
+                names = ",".join(columns)
+                placeholders = ",".join("?" for _ in columns)
+                rows = stage.execute(f"SELECT {names} FROM {table}")
+                connection.executemany(f"INSERT INTO {table}({names}) VALUES({placeholders})", rows)
+            connection.execute("""INSERT INTO group_stats SELECT group_id, COUNT(*), SUM(COALESCE(revenue,0))
+                                  FROM companies WHERE group_id IS NOT NULL GROUP BY group_id""")
+    print(f"Справочники обновлены за {time.monotonic() - started:.1f} с", file=sys.stderr)
 
 
 if __name__ == "__main__":

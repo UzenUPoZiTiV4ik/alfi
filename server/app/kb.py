@@ -1,6 +1,7 @@
-"""аналитика альфа-банка: документы и фрагменты из data/kb/kb.json.
+"""База знаний аналитики Альфа-Банка: документы и фрагменты (тезисы, прогнозы, абзацы страниц).
 
-id фрагментов: bank:<doc>:t1 тезис, :f1 прогноз, :p12-3 абзац.
+Источник данных: data/kb/kb.json, который собирает scripts/build_kb.py из OCR-текста сканов.
+Id фрагментов: bank:<doc>:t<n> (тезис), bank:<doc>:f<n> (прогноз), bank:<doc>:p<стр>-<n> (абзац).
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import re
 
 from . import config, db
 
+# Человеческие короткие id документов по имени файла (иначе берётся очищенное имя)
 DOC_SLUGS = {
     "ALFA-7M26.pdf": "macro-7m26",
     "ALFA-Macro_Insights-Policy_Rate_11Sep.pdf": "rate-11sep",
@@ -21,8 +23,10 @@ DOC_SLUGS = {
     "Бонд_Бриф_14092026.pdf": "bond-14sep",
 }
 
+
 def slug(file: str) -> str:
     return DOC_SLUGS.get(file) or re.sub(r"[^a-z0-9]+", "-", file.lower().rsplit(".", 1)[0]).strip("-")[:24]
+
 
 def paragraphs(text: str, size: int = 700) -> list[str]:
     """Режем OCR-страницу на куски ~size символов по границам строк."""
@@ -39,30 +43,38 @@ def paragraphs(text: str, size: int = 700) -> list[str]:
         out.append(cur.strip())
     return out
 
+
 def load_json() -> int:
     """kb.json -> таблицы kb_docs / kb_chunks. Возвращает число фрагментов."""
     path = config.KB_DIR / "kb.json"
     if not path.exists():
         return 0
     data = json.loads(path.read_text(encoding="utf-8"))
-    db.ex("DELETE FROM kb_docs")
-    db.ex("DELETE FROM kb_chunks")
+    documents = []
     rows = []
     for d in data["docs"]:
-        db.ex("INSERT INTO kb_docs(id,file,title,date,kind,pages,summary,stale,meta_json) VALUES(?,?,?,?,?,?,?,?,?)",
-              (d["id"], d["file"], d["title"], d.get("date"), d.get("kind"), d.get("pages"), d.get("summary"),
-               int(d.get("stale", False)), db.j(d.get("meta", {}))))
+        documents.append((d["id"], d["file"], d["title"], d.get("date"), d.get("kind"), d.get("pages"),
+                          d.get("summary"), int(d.get("stale", False)), db.j(d.get("meta", {}))))
         for ch in d["chunks"]:
             rows.append((ch["id"], d["id"], ch["kind"], ch.get("page"), ch["text"], ch.get("quote"),
                          None if ch.get("quote_verified") is None else int(ch["quote_verified"]),
                          db.j(ch.get("factors", [])), db.j(ch.get("sectors", [])), ch.get("stance"), ch.get("horizon"),
                          db.j(ch.get("meta", {}))))
-    db.exmany("INSERT INTO kb_chunks VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    with db.transaction() as connection:
+        connection.execute("DELETE FROM kb_chunks")
+        connection.execute("DELETE FROM kb_docs")
+        connection.executemany("INSERT INTO kb_docs(id,file,title,date,kind,pages,summary,stale,meta_json) VALUES(?,?,?,?,?,?,?,?,?)",
+                               documents)
+        connection.executemany("INSERT INTO kb_chunks VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    from . import search
+    search.invalidate()
     return len(rows)
+
 
 def ensure_loaded() -> None:
     if db.q1("SELECT COUNT(*) n FROM kb_chunks")["n"] == 0:
         load_json()
+
 
 def docs() -> list[dict]:
     out = db.q("""SELECT d.*, (SELECT COUNT(*) FROM kb_chunks c WHERE c.doc_id=d.id AND c.kind='thesis') theses,
@@ -74,6 +86,7 @@ def docs() -> list[dict]:
         d["meta"] = db.unj(d.pop("meta_json"), {})
     return out
 
+
 def doc(doc_id: str) -> dict | None:
     d = db.q1("SELECT * FROM kb_docs WHERE id=?", (doc_id,))
     if not d:
@@ -83,9 +96,11 @@ def doc(doc_id: str) -> dict | None:
     d["chunks"] = [chunk_view(c) for c in db.q("SELECT * FROM kb_chunks WHERE doc_id=? AND kind!='para' ORDER BY kind DESC, id", (doc_id,))]
     return d
 
+
 def chunk(cid: str) -> dict | None:
     c = db.q1("SELECT c.*, d.title doc_title, d.date doc_date, d.stale FROM kb_chunks c JOIN kb_docs d ON d.id=c.doc_id WHERE c.id=?", (cid,))
     return chunk_view(c) if c else None
+
 
 def chunk_view(c: dict) -> dict:
     c = dict(c)

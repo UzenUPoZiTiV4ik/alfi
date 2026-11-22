@@ -1,11 +1,16 @@
-"""команда помощников под компанию и роль.
+"""Команда Альфи: помощники собираются под конкретную компанию и роль, а не задаются заранее.
 
-правила дают кандидатов и веса, модель выбирает до трёх и пишет каждому задачу.
+Кандидаты строятся из профиля: отраслевой помощник (сырьё, спрос, стройка...), «Деньги» при кредитах и депозитах,
+«ВЭД» при внешней торговле, «Контрагенты» при высокой концентрации, «Налоги» и «Законы» по роли и масштабу.
+Каждому кандидату считается вес = сумма чувствительностей его факторов с бустом роли. В команду идут
+3 лучших, пользователь может заменить их или добавить одного своего, всего не больше 4.
 """
 from __future__ import annotations
 
 import re
 import threading
+from datetime import datetime, time, timedelta, timezone as utc_timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import db, nlp, profile
 from .taxonomy import FACTORS, ROLES, count_hits, sector_label
@@ -40,10 +45,13 @@ SECTOR_HELPER = {
     "services": ("Спрос", "Клиенты, цены, кадры", ["demand", "labor", "inflation"]),
 }
 
+
 def _w(p: dict, role: str, factors: list[str]) -> float:
     boost = ROLES.get(role, ROLES["cfo"])["boost"]
     vals = sorted((p["sensitivities"][f]["value"] * boost.get(f, 1.0) for f in factors if f in p["sensitivities"]), reverse=True)
+    # главный фактор весит больше остальных: помощник нужен, если хотя бы один его канал сильный
     return round(sum(v * k for v, k in zip(vals, (1.0, 0.5, 0.3))), 3)
+
 
 def _why(p: dict, factors: list[str]) -> str:
     out = []
@@ -54,6 +62,7 @@ def _why(p: dict, factors: list[str]) -> str:
             if w["text"] not in out:
                 out.append(w["text"])
     return "; ".join(out[:2])
+
 
 def candidates(uid: str, role: str) -> list[dict]:
     p = profile.build(uid)
@@ -97,13 +106,16 @@ def candidates(uid: str, role: str) -> list[dict]:
     out.sort(key=lambda c: -c["weight"])
     return out
 
+
 def _key(uid: str, role: str) -> str:
     return f"team:{uid}|{role}"
+
 
 def get(uid: str, role: str) -> dict:
     cands = candidates(uid, role)
     by = {c["id"]: c for c in cands}
     ai = db.kv_get(_ai_key(uid, role))
+    # ИИ дописывает каждому кандидату, за что именно он отвечает в этой компании
     if ai:
         for c in cands:
             x = ai["notes"].get(c["id"])
@@ -118,14 +130,21 @@ def get(uid: str, role: str) -> dict:
     else:
         members, picked_by = cands[:AUTO_TEAM], "rules"
     members = members[:MAX_TEAM]
+    schedules = {s["member_id"]: s for s in db.q("SELECT * FROM team_schedules WHERE uid=? AND role=?", (uid, role))}
+    for member in members:
+        schedule = schedules.get(member["id"], {})
+        member["frequency"] = schedule.get("frequency", "off")
+        member["timezone"] = schedule.get("timezone", "UTC")
+        member["next_run_at"] = schedule.get("next_run_at")
     ids = {m["id"] for m in members}
     return {"members": members, "available": [c for c in cands if c["id"] not in ids], "max": MAX_TEAM, "custom": bool(saved),
-            "picked_by": picked_by, "selecting": _ai_busy(uid, role), "ai": {"model": ai.get("model"), "summary": ai.get("summary", ""),
+            "picked_by": picked_by, "selecting": selecting(uid, role), "ai": {"model": ai.get("model"), "summary": ai.get("summary", ""),
             "skipped": ai.get("skipped", {})} if ai else None}
+
 
 # ---------- Подбор команды моделью ----------
 # Правила дают кандидатов и веса, модель выбирает троих под задачи компании и роль и пишет каждому конкретную задачу.
-# кэш на компанию и роль; если модель недоступна, остаётся подбор правилами
+# Результат кэшируется на компанию и роль; если модель недоступна или ответ невалиден, остаётся подбор правилами.
 TEAM_PROMPT = """Ты собираешь команду помощников-аналитиков для руководителя крупной компании в интернет-банке Альфа-Бизнес.
 Каждый помощник следит за своей темой в новостях и объясняет влияние на бизнес. Выбери ровно {n} помощников из кандидатов,
 которые дадут этой компании и роли «{role}» (фокус: {focus}) самый полезный сигнал. Не бери помощника, если у компании нет такого риска в данных.
@@ -135,15 +154,19 @@ TEAM_PROMPT = """Ты собираешь команду помощников-а�
   "skipped": [{{"id": "id кандидата", "why": "почему не нужен сейчас, до 10 слов"}}]}}
 Пиши по-русски, без воды, опирайся только на профиль и кандидатов."""
 
+
 def _ai_key(uid: str, role: str) -> str:
     return f"team_ai:{uid}|{role}"
+
 
 _ai_lock = threading.Lock()
 _ai_running: set[str] = set()
 
-def _ai_busy(uid: str, role: str) -> bool:
+
+def selecting(uid: str, role: str) -> bool:
     with _ai_lock:
         return _ai_key(uid, role) in _ai_running
+
 
 def pick_ai(uid: str, role: str) -> dict | None:
     from . import llm
@@ -161,13 +184,14 @@ def pick_ai(uid: str, role: str) -> dict | None:
     team = [t for t in (out.get("team") or []) if isinstance(t, dict) and t.get("id") in by]
     ids = list(dict.fromkeys(t["id"] for t in team))[:AUTO_TEAM]
     if len(ids) < min(AUTO_TEAM, len(cands)):
-        # модель дала меньше трёх — добираем по правилам
+        # модель выбрала меньше нужного: добираем лучшими по правилам
         ids += [c["id"] for c in cands if c["id"] not in ids][:AUTO_TEAM - len(ids)]
     notes = {t["id"]: {"task": str(t.get("task", ""))[:160], "why": str(t.get("why", ""))[:180]} for t in team}
     skipped = {x["id"]: str(x.get("why", ""))[:120] for x in (out.get("skipped") or []) if isinstance(x, dict) and x.get("id") in by}
     res = {"ids": ids, "notes": notes, "skipped": skipped, "summary": str(out.get("summary", ""))[:240], "model": r.get("model")}
     db.kv_set(_ai_key(uid, role), res)
     return res
+
 
 def ensure_ai(uid: str, role: str) -> None:
     """Запустить подбор в фоне, если для компании и роли его ещё не было."""
@@ -190,13 +214,56 @@ def ensure_ai(uid: str, role: str) -> None:
 
     threading.Thread(target=go, daemon=True).start()
 
+
 def own_view(o: dict) -> dict:
     return {"id": o["id"], "kind": "own", "name": o["name"], "watch": o["watch"], "fur": o["fur"], "factors": o.get("factors", []),
             "sectors": [], "keywords": o.get("keywords", []), "why": "своя тема", "auto": False, "weight": 0}
 
+
 _HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
-def save(uid: str, role: str, ids: list[str], own: list[dict]) -> dict:
+
+def next_run_at(frequency: str, timezone: str, after: datetime | None = None) -> str | None:
+    """day: 09:00 по местному времени, week: 09:00 в понедельник. now запускается событием."""
+    if frequency not in ("off", "now", "day", "week"):
+        raise ValueError("frequency должна быть off, now, day или week")
+    try:
+        zone = ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError, TypeError) as error:
+        raise ValueError("timezone должна быть именем IANA, например Europe/Moscow") from error
+    if frequency in ("off", "now"):
+        return None
+    instant = after or datetime.now(utc_timezone.utc)
+    if instant.tzinfo is None:
+        raise ValueError("after должен содержать часовой пояс")
+    local = instant.astimezone(zone)
+    date = local.date()
+    if frequency == "week":
+        date += timedelta(days=(-date.weekday()) % 7)
+    run = datetime.combine(date, time(9), zone)
+    if run <= local:
+        run += timedelta(days=1 if frequency == "day" else 7)
+    return run.astimezone(utc_timezone.utc).isoformat()
+
+
+def _write_schedule(connection, uid: str, role: str, member_id: str, frequency: str, timezone: str) -> None:
+    run_at = next_run_at(frequency, timezone)
+    connection.execute("""INSERT INTO team_schedules(uid,role,member_id,frequency,timezone,next_run_at) VALUES(?,?,?,?,?,?)
+                          ON CONFLICT(uid,role,member_id) DO UPDATE SET frequency=excluded.frequency,
+                          timezone=excluded.timezone,next_run_at=excluded.next_run_at
+                          WHERE frequency!=excluded.frequency OR timezone!=excluded.timezone""",
+                       (uid, role, member_id, frequency, timezone, run_at))
+
+
+def set_schedule(uid: str, role: str, member_id: str, frequency: str, timezone: str) -> dict:
+    with db.transaction() as connection:
+        if member_id not in {member["id"] for member in get(uid, role)["members"]}:
+            raise ValueError("Помощника нет в команде")
+        _write_schedule(connection, uid, role, member_id, frequency, timezone)
+        return db.q1("SELECT * FROM team_schedules WHERE uid=? AND role=? AND member_id=?", (uid, role, member_id))
+
+
+def save(uid: str, role: str, ids: list[str], own: list[dict], schedules: dict[str, dict] | None = None) -> dict:
     cands = {c["id"] for c in candidates(uid, role)}
     ids = [i for i in dict.fromkeys(ids) if i in cands]
     clean = []
@@ -208,17 +275,30 @@ def save(uid: str, role: str, ids: list[str], own: list[dict]) -> dict:
         fur = str(o.get("fur", "")).upper() if _HEX.match(str(o.get("fur", ""))) else FUR["own"]
         raw = str(o.get("id", "")).lower()
         oid = raw if re.match(r"^own-[a-z0-9]{1,12}$", raw) else "own-" + (re.sub(r"[^a-z0-9]", "", raw)[-10:] or "x")
-        # свою тему разбираем по словам: факторы и ключи для поиска
+        # своя тема: факторы угадываются по словам, плюс сами слова для поиска по новостям
         facs = [f for f, v in FACTORS.items() if count_hits(watch + " " + name, v["words"])][:3]
         kws = [s for s in nlp.stems(watch) if len(s) >= 4][:6]
         clean.append({"id": oid, "name": name, "watch": watch, "fur": fur, "factors": facs, "keywords": kws})
     if len(ids) + len(clean) > MAX_TEAM:
         ids = ids[: MAX_TEAM - len(clean)]
-    if not ids and not clean:
-        db.kv_del(_key(uid, role))
-    else:
-        db.kv_set(_key(uid, role), {"ids": ids, "own": clean})
+    member_ids = ids + [o["id"] for o in clean]
+    with db.transaction() as connection:
+        if member_ids:
+            ts = datetime.now(utc_timezone.utc).isoformat()
+            connection.execute("INSERT OR REPLACE INTO kv(k,v,ts) VALUES(?,?,?)",
+                               (_key(uid, role), db.j({"ids": ids, "own": clean}), ts))
+            placeholders = ",".join("?" for _ in member_ids)
+            connection.execute(f"DELETE FROM team_schedules WHERE uid=? AND role=? AND member_id NOT IN ({placeholders})",
+                               (uid, role, *member_ids))
+        else:
+            connection.execute("DELETE FROM kv WHERE k=?", (_key(uid, role),))
+            connection.execute("DELETE FROM team_schedules WHERE uid=? AND role=?", (uid, role))
+        for member_id, schedule in (schedules or {}).items():
+            if member_id not in member_ids:
+                raise ValueError("Помощника нет в команде")
+            _write_schedule(connection, uid, role, member_id, schedule.get("frequency"), schedule.get("timezone"))
     return get(uid, role)
+
 
 def assign(card: dict, members: list[dict]) -> str | None:
     """Чей это сигнал: помощник с наибольшим совпадением факторов, отраслей, стран или своих слов."""
@@ -242,4 +322,4 @@ def assign(card: dict, members: list[dict]) -> str | None:
             s += 0.9 * hit
         if s > bs:
             best, bs = m["id"], s
-    return best if bs >= 0.3 else None
+    return best if bs >= 0.5 else None

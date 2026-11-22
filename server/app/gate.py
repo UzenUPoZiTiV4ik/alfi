@@ -16,6 +16,8 @@ from threading import Lock
 from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from starlette._utils import get_route_path
+
 from . import config
 
 COOKIE = "alfi_gate"
@@ -40,7 +42,7 @@ def check(token: str | None) -> bool:
     if not token or "." not in token:
         return False
     body, sig = token.rsplit(".", 1)
-    if not hmac.compare_digest(sig, _sign(body)):
+    if not sig.isascii() or not hmac.compare_digest(sig, _sign(body)):
         return False
     try:
         exp = int(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
@@ -49,19 +51,41 @@ def check(token: str | None) -> bool:
     return exp > time.time()
 
 
+class SiteGate:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            base = config.SITE_BASE
+            path = scope["path"]
+            if base and path == base:
+                await RedirectResponse(base + "/")(scope, receive, send)
+                return
+            if base and path.startswith(base + "/"):
+                scope = dict(scope, root_path=base)
+            if config.SITE_PASSWORD:
+                response = guard(Request(scope))
+                if response is not None:
+                    await response(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
+
+
 def api_only(request: Request) -> bool:
-    path = request.url.path
+    path = get_route_path(request.scope)
     return path.startswith("/api/") or path == "/openapi.json"
 
 
 def may_pass(request: Request) -> bool:
-    if request.url.path in OPEN_PATHS:
+    path = get_route_path(request.scope)
+    if path in OPEN_PATHS:
         return True
     if check(request.cookies.get(COOKIE)):
         return True
     # healthcheck контейнера и systemd ходит с самого хоста
     host = request.client.host if request.client else ""
-    return host in ("127.0.0.1", "::1") and request.url.path == "/api/health"
+    return host in ("127.0.0.1", "::1") and path == "/api/health"
 
 
 def wrong_password(ip: str) -> bool:
@@ -98,14 +122,14 @@ def login(request: Request, password: str) -> JSONResponse | RedirectResponse:
     left = blocked(ip)
     if left:
         return JSONResponse({"detail": f"слишком много попыток, подождите {left // 60 + 1} мин"}, status_code=429)
-    ok = bool(config.SITE_PASSWORD) and hmac.compare_digest(password or "", config.SITE_PASSWORD)
+    ok = bool(config.SITE_PASSWORD) and hmac.compare_digest(password.encode(), config.SITE_PASSWORD.encode())
     if not ok:
         wrong_password(ip)
         return RedirectResponse(config.SITE_BASE + "/gate?e=1", status_code=303)
     resp = RedirectResponse(config.SITE_BASE + "/", status_code=303)
     resp.set_cookie(
         COOKIE, issue(), max_age=config.SITE_COOKIE_TTL_H * 3600, path=config.SITE_BASE or "/",
-        httponly=True, samesite="lax", secure=bool(config.SITE_BASE),
+        httponly=True, samesite="lax", secure=request.url.scheme == "https" or bool(config.SITE_BASE),
     )
     return resp
 

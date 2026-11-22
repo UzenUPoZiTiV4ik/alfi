@@ -1,4 +1,6 @@
 """Быстрые проверки без сети и без данных кейса: безопасность, разбор JSON модели, проверка цитат."""
+import pytest
+
 from app import llm, nlp, security
 
 
@@ -51,3 +53,29 @@ def test_site_gate_cookie(monkeypatch):
     assert not gate.check(body + ".deadbeef")
     monkeypatch.setattr(config, "SITE_SECRET", "other")
     assert not gate.check(token)
+
+
+@pytest.mark.parametrize("client", ["127.0.0.1"], indirect=True)
+@pytest.mark.parametrize("prefix", ["", "/alfi"])
+def test_gate_and_company_session(client, monkeypatch, prefix):
+    from app import config
+
+    monkeypatch.setattr(config, "SITE_BASE", prefix)
+    monkeypatch.setattr(config, "SITE_PASSWORD", "пароль")
+    monkeypatch.setattr(config, "DEMO_MODE", True)
+    assert client.get(prefix + "/").headers["location"] == prefix + "/gate"
+    assert client.get(prefix + "/api/me").status_code == 401
+    assert client.get(prefix + "/api/health").status_code == 200
+    assert client.get(prefix + "/gate").status_code == 200
+    login = client.post(prefix + "/api/gate", data={"password": "пароль"})
+    assert login.headers["location"] == prefix + "/"
+    assert "alfi_gate" in login.cookies
+    assert 'src="js/alfi.js?v=1.3.0"' in client.get(prefix + "/").text
+    assert client.get(prefix + "/js/modules/chat.js").status_code == 200
+    assert client.get(prefix + "/api/me").status_code == 401
+    session = client.post(prefix + "/api/session", json={"uid": "AAA", "role": "cfo"})
+    assert "alfi_session" in session.cookies
+    assert client.get(prefix + "/api/me").status_code == 200
+    client.post(prefix + "/api/auth/logout")
+    assert client.get(prefix + "/api/me").status_code == 401
+    assert client.get(prefix + "/").status_code == 200

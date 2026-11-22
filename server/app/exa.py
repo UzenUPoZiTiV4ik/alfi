@@ -1,4 +1,7 @@
-"""exa: только /search (type=auto) и /contents, с кэшем и дневным лимитом."""
+"""Exa: только /search (type=auto) и /contents. Режимы agent, research и answer не используются.
+
+Ответы кэшируются в SQLite (exa_cache), есть дневной лимит запросов.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +23,8 @@ def _day() -> str:
 
 
 def used_today() -> int:
-    return db.q1("SELECT COUNT(*) n FROM exa_cache WHERE day=?", (_day(),))["n"]
+    row = db.q1("SELECT used FROM exa_requests WHERE day=?", (_day(),))
+    return row["used"] if row else 0
 
 
 def _call(endpoint: str, body: dict, ttl_h: float) -> dict:
@@ -36,8 +40,13 @@ def _call(endpoint: str, body: dict, ttl_h: float) -> dict:
             return out
     if not config.EXA_API_KEY:
         raise ExaLimit("EXA_API_KEY не задан")
-    if used_today() >= config.EXA_DAILY_LIMIT:
-        raise ExaLimit("дневной лимит Exa исчерпан")
+    day = _day()
+    with db.transaction() as connection:
+        connection.execute("INSERT OR IGNORE INTO exa_requests VALUES(?,0)", (day,))
+        claimed = connection.execute("UPDATE exa_requests SET used=used+1 WHERE day=? AND used<?",
+                                     (day, config.EXA_DAILY_LIMIT))
+        if not claimed.rowcount:
+            raise ExaLimit("дневной лимит Exa исчерпан")
     r = httpx.post(BASE + endpoint, json=body, timeout=40,
                    headers={"x-api-key": config.EXA_API_KEY, "content-type": "application/json"})
     r.raise_for_status()

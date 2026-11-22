@@ -1,16 +1,20 @@
-"""лента: оценка новости, причины попадания, вид, тема, триаж, отклик.
+"""Персональная лента: формула значимости, причины попадания, вид (риск/возможность), тема, триаж, фидбек.
 
-score = base × сила × свежесть × доверие × событие × отклик
-base  = 0.55·отрасль + 0.75·фактор + гео
+score = base * materiality * recency * trust * cluster * feedback
+base  = 0.55 * sector + 0.75 * factor + geo
+Каждая причина хранит id признака компании (feat:*), чтобы интерфейс показывал «почему в ленте».
 """
 from __future__ import annotations
 
 import math
 import threading
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from functools import lru_cache
+from typing import Literal
 
-from . import config, db, llm, profile, search
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+from . import config, db, llm, news, profile, search
 from .security import wrap_untrusted
 from .taxonomy import AREAS, FACTOR_AREAS, FACTORS, ROLES, SECTORS, SELLER_OF, SOURCE_TRUST, TOPICS, count_hits, sector_label
 
@@ -20,24 +24,83 @@ CHANCE_WORDS = ["снижени ставк", "снизил ставк", "сни�
 RISK_WORDS = ["повышени ставк", "повысил ставк", "санкц", "запрет", "штраф", "дефолт", "банкрот", "паден", "снижени спрос", "рост налог",
               "повышени налог", "ужесточ", "огранич", "дефицит", "убыт", "подорожа", "рост издерж", "просрочк", "ослаблени рубл", "укреплени рубл"]
 
+
 def now() -> datetime:
     return datetime.now(timezone.utc)
 
+
 def pkey(uid: str, role: str) -> str:
     return f"{uid}|{role}"
+
 
 # ---------- Фидбек ----------
 def prefs(uid: str, role: str) -> dict[str, float]:
     r = db.q1("SELECT weights_json FROM user_prefs WHERE key=?", (pkey(uid, role),))
     return db.unj(r["weights_json"], {}) if r else {}
 
-def apply_feedback(uid: str, role: str, keys: list[str], delta: float) -> dict:
-    w = prefs(uid, role)
-    for k in keys:
-        w[k] = round(max(0.3, min(1.6, w.get(k, 1.0) + delta)), 3)
-    db.ex("INSERT OR REPLACE INTO user_prefs(key,weights_json,updated) VALUES(?,?,?)", (pkey(uid, role), db.j(w), now().isoformat()))
-    invalidate_feed(uid)
-    return w
+
+def set_feedback(uid: str, role: str, news_id: str, kind: str) -> dict:
+    scored = reasons_for(uid, role, news_id) or {}
+    keys = [f"factor:{scored['main']}"] if scored.get("main") else []
+    keys.extend(f"sector:{sector}" for sector in scored.get("sectors", [])[:2])
+    return db.set_feedback(uid, role, news_id, kind, keys)
+
+
+class DatedItem(BaseModel):
+    effective_date: str | None = None
+
+    @field_validator("effective_date", mode="before")
+    @classmethod
+    def normalize_date(cls, value):
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value.strip()).date().isoformat()
+            except ValueError:
+                pass
+        return None
+
+
+class TriageArea(BaseModel):
+    id: str
+    effect: str = ""
+    impact: Literal["negative", "positive", "mixed"] | None = None
+
+
+class TriageItem(DatedItem):
+    i: int = Field(ge=1)
+    headline: str = Field(min_length=1)
+    why: str = Field(min_length=1)
+    kind: Literal["risk", "chance", "mixed"]
+    urgency: int = Field(ge=1, le=3)
+    relevant: bool
+    topic: str = ""
+    action: str = ""
+    areas: list[TriageArea] = Field(default_factory=list)
+    deadline_label: str = ""
+
+
+class ExtractFactor(BaseModel):
+    id: str
+    strength: int = Field(default=1, ge=0, le=5)
+
+
+class ExtractItem(DatedItem):
+    summary: str = ""
+    business: bool | None = None
+    sectors: list[str] = Field(default_factory=list)
+    factors: list[ExtractFactor] = Field(default_factory=list)
+    materiality: int = Field(default=2, ge=1, le=5)
+    key_facts: list[str] = Field(default_factory=list)
+
+
+def validated(model, raw) -> dict:
+    if not raw:
+        return {}
+    try:
+        return model.model_validate(raw).model_dump()
+    except ValidationError:
+        return {}
+
 
 # ---------- Скоринг одной новости ----------
 def _news_signals(n: dict) -> tuple[dict[str, int], dict[str, int], dict]:
@@ -49,6 +112,7 @@ def _news_signals(n: dict) -> tuple[dict[str, int], dict[str, int], dict]:
     for f in ext.get("factors") or []:
         facs[f["id"]] = facs.get(f["id"], 0) + int(f.get("strength") or 1) + 1
     return secs, facs, ext
+
 
 def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
     secs, facs, ext = _news_signals(n)
@@ -83,6 +147,7 @@ def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
         if contrib[f] < 0.08:
             continue
         why = p["sensitivities"][f]["why"]
+        # конкретный признак (кредиты, ВЭД, контрагенты) важнее общего «ваша отрасль», которая уже названа выше
         spec = [x for x in why if x["feat"] != "feat:sector"] or why
         w0 = spec[0] if spec else None
         text = FACTORS[f]["label"] if not w0 or (w0["feat"] == "feat:sector" and best_sec == p["sector"]) else f"{FACTORS[f]['label']}: {w0['text']}"
@@ -93,7 +158,7 @@ def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
         geo += 0.25
         reasons.append({"text": f"ваш регион: {p['region']}", "feat": "feat:region", "w": 0.25})
     hit_c = [c for c in p["countries"] if c in (n["tags"].get("countries") or [])]
-    # страна важна только для торговли, валюты, логистики и своей отрасли
+    # страна ВЭД важна, только если событие про торговлю, валюту, логистику или вашу отрасль
     if hit_c and (set(contrib) & {"trade", "fx", "logistics"} or sector >= 0.6):
         geo += 0.35
         reasons.append({"text": f"страна вашей ВЭД: {', '.join(c.title() for c in hit_c[:3])}", "feat": "feat:fts", "w": 0.35})
@@ -115,10 +180,12 @@ def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
             "parts": {"sector": round(sector, 3), "factor": round(factor, 3), "geo": geo, "materiality": round(materiality, 2),
                       "recency": round(recency, 2), "trust": round(trust, 2), "cluster": round(cluster, 2), "feedback": round(fb, 2)}}
 
+
 def guess_kind(n: dict, main: str | None) -> str:
     t = f"{n['title']} {(n.get('extract') or {}).get('summary', '')}"
     c, r = count_hits(t, CHANCE_WORDS), count_hits(t, RISK_WORDS)
     return "chance" if c > r else "risk"
+
 
 def areas_for(factors: list[str], p: dict, reasons: list[dict]) -> list[dict]:
     """Сферы бизнеса по правилам, если триаж ещё не ответил.
@@ -139,63 +206,40 @@ def areas_for(factors: list[str], p: dict, reasons: list[dict]) -> list[dict]:
         out.append("counterparty")
     return [{"id": a, "label": AREAS[a], "effect": "", "impact": None} for a in dict.fromkeys(out)][:4]
 
+
 # ---------- Кандидаты ----------
 def candidates(uid: str, days: int = 5) -> list[dict]:
     since = (now() - timedelta(days=days)).isoformat()
-    rows = db.q("""SELECT n.id, n.url, n.title, n.text, n.source, n.source_id, n.origin, n.published, n.cluster_id, n.tags_json,
+    visible, args = db.news_visibility_clause(uid, "n")
+    rows = db.q(f"""SELECT n.id, n.url, n.title, n.text, n.source, n.source_id, n.origin, n.published, n.cluster_id, n.tags_json,
                           n.extract_json, n.user_uid,
-                          (SELECT COUNT(DISTINCT m.source) FROM news m WHERE m.cluster_id = n.id) AS n_sources
+                          (SELECT COUNT(DISTINCT m.source) FROM news m WHERE m.cluster_id = n.id
+                           AND COALESCE(m.user_uid,'')=COALESCE(n.user_uid,'')) AS n_sources
                    FROM news n
                    WHERE n.published >= ? AND (n.cluster_id = n.id OR n.cluster_id IS NULL)
-                     AND (n.user_uid IS NULL OR n.user_uid = ?)""", (since, uid))
+                     AND {visible}""", (since, *args))
     out = []
     for r in rows:
         r["tags"] = db.unj(r.pop("tags_json"), {}) or {}
-        r["extract"] = db.unj(r.pop("extract_json"), None)
+        r["extract"] = validated(ExtractItem, db.unj(r.pop("extract_json")))
         r["n_sources"] = max(1, r["n_sources"] or 1)
         if r["tags"].get("business") or r["user_uid"]:
             out.append(r)
     return out
 
-_stats_cache: tuple[float, dict] | None = None
 
-
-def corpus_stats(days: int = 5) -> dict:
-    """счётчики по всей базе: считаем раз в 5 минут, они меняются только после сбора"""
-    global _stats_cache
-    if _stats_cache and time.time() - _stats_cache[0] < 300:
-        return dict(_stats_cache[1], days=days)
+def corpus_stats(uid: str | None = None, days: int = 5) -> dict:
     since = (now() - timedelta(days=days)).isoformat()
-    a = db.q1("SELECT COUNT(*) n, COUNT(DISTINCT source) s, COUNT(DISTINCT cluster_id) e FROM news WHERE published >= ?", (since,))
-    b = db.q1("SELECT COUNT(*) n FROM news WHERE published >= ? AND cluster_id = id AND tags_json LIKE '%\"business\":true%'", (since,))
-    out = {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
-    _stats_cache = (time.time(), out)
-    return out
+    visible, args = db.news_visibility_clause(uid)
+    a = db.q1(f"""SELECT COUNT(*) n, COUNT(DISTINCT source) s, COUNT(DISTINCT cluster_id) e
+                  FROM news WHERE published >= ? AND {visible}""", (since, *args))
+    b = db.q1(f"""SELECT COUNT(*) n FROM news WHERE published >= ? AND {visible} AND cluster_id = id
+                  AND tags_json LIKE '%"business":true%'""", (since, *args))
+    return {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
+
 
 # ---------- Лента ----------
-# лента пересобирается с sqlite каждый раз, поэтому держим её в памяти на пару десятков секунд
-_feed_cache: dict[tuple, tuple[float, dict]] = {}
-_feed_lock = threading.Lock()
-FEED_TTL_SEC = 180
-
-
-def invalidate_feed(uid: str | None = None) -> None:
-    with _feed_lock:
-        if uid is None:
-            _feed_cache.clear()
-            global _stats_cache
-            _stats_cache = None
-        else:
-            for k in [k for k in _feed_cache if k[0] == uid]:
-                _feed_cache.pop(k, None)
-
-
-def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True) -> dict:
-    ck = (uid, role, limit, triage_on)
-    with _feed_lock:
-        hit = _feed_cache.get(ck)
-        if hit and time.time() - hit[0] < FEED_TTL_SEC:
-            return hit[1]
+def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True, browse: bool = False) -> dict:
     t0 = now()
     p = profile.build(uid)
     if not p:
@@ -204,38 +248,42 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True) 
     key = pkey(uid, role)
     tri = {r["news_id"]: db.unj(r["data_json"], {}) for r in db.q("SELECT news_id, data_json FROM triage WHERE key=?", (key,))}
     ins = {r["news_id"] for r in db.q("SELECT news_id FROM insights WHERE key=?", (key,))}
-    hidden = {r["news_id"] for r in db.q("SELECT news_id FROM feedback WHERE uid=? AND role=? AND kind='not_relevant'", (uid, role))}
+    states = {r["news_id"]: r["state"] for r in db.q(
+        "SELECT news_id,state FROM feedback_state WHERE user_uid=? AND role=?", (uid, role))}
     scored = []
     for n in candidates(uid):
-        if n["id"] in hidden:
+        if states.get(n["id"]) == "not_relevant":
             continue
         s = score(n, p, role, w)
         if s and (s["score"] >= config.FEED_THRESHOLD or n["user_uid"]):
             scored.append((n, s))
     scored.sort(key=lambda x: -x[1]["score"])
-    best = scored[0][1]["score"] if scored else 1.0
+    best = (scored[0][1]["score"] or 1.0) if scored else 1.0
     per_main: dict[str, int] = {}
     items = []
     size = limit or config.FEED_SIZE
+    generation = search.generation()
     for n, s in scored:
         m = s["main"] or "other"
         if n["user_uid"]:
             continue
-        if per_main.get(m, 0) >= 4:
+        if not browse and per_main.get(m, 0) >= 4:
             continue
         per_main[m] = per_main.get(m, 0) + 1
-        items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins))
-        if len(items) >= size:
+        items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins, role, generation))
+        if not browse and len(items) >= size:
             break
-    # свою новость показываем всегда, иначе непонятно, дочитал ли её сервис
+    # свои новости пользователя видны всегда, даже со слабой связью: так проверяется работа на новых данных
     for n, s in scored:
         if n["user_uid"]:
-            items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins))
+            items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins, role, generation))
     from . import team as team_mod
     tm = team_mod.get(uid, role)
     for it in items:
+        it["feedback_state"] = states.get(it["id"], "neutral")
         it["helper"] = team_mod.assign(it, tm["members"])
-    # триаж сказал «не касается» — опускаем, но не прячем
+    # триаж мог решить, что событие компанию не касается: опускаем вниз, но не прячем
+    # триаж уточняет значимость: «не касается» сильно понижает, срочность 3 немного повышает
     for it in items:
         k = 0.35 if it["relevant"] is False else (1.0 + 0.08 * (it["urgency"] - 2) if it["triaged"] else 1.0)
         it["score"] = round(it["score"] * k, 4)
@@ -246,25 +294,27 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True) 
     pending = [it["id"] for it in items if not it["triaged"]][:24]
     if triage_on and pending and llm.budget_state()["spent_rub"] < config.BUDGET_HARD_RUB:
         start_triage(uid, role, pending)
-    st = corpus_stats()
+    st = corpus_stats(uid)
     st["picked"] = len(items)
-    out = {"items": items, "stats": st, "triage_pending": bool(pending), "ms": int((now() - t0).total_seconds() * 1000),
-           "role": role, "uid": uid, "team": tm}
-    with _feed_lock:
-        if len(_feed_cache) > 64:
-            _feed_cache.clear()
-        _feed_cache[ck] = (time.time(), out)
-    return out
+    return {"items": items, "stats": st, "triage_pending": bool(pending), "ms": int((now() - t0).total_seconds() * 1000),
+            "role": role, "uid": uid, "team": tm}
 
-def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bool) -> dict:
-    ext = n.get("extract") or {}
+
+@lru_cache(maxsize=2048)
+def _refs(generation, uid, role, factors, sectors, query):
+    return search.bank_refs_for(list(factors), list(sectors), query, {"uid": uid, "role": role}, k=2)
+
+
+def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bool, role: str, generation) -> dict:
+    t = validated(TriageItem, t)
+    ext = validated(ExtractItem, n.get("extract"))
     main = s["main"]
     kind = (t or {}).get("kind") or guess_kind(n, main)
     topic = (t or {}).get("topic") or (FACTORS[main]["topic"] if main else "sales")
     if topic not in TOPICS:
         topic = FACTORS[main]["topic"] if main else "sales"
     sec_hit = [x for x in s["sectors"] if x == p["sector"]] or s["sectors"][:1]
-    refs = search.bank_refs_for(s["factors"][:2], sec_hit, n["title"] + " " + (ext.get("summary") or ""), k=2)
+    refs = _refs(generation, p["uid"], role, tuple(s["factors"][:2]), tuple(sec_hit), n["title"] + " " + (ext.get("summary") or ""))
     why = (t or {}).get("why") or ("Касается вас через: " + "; ".join(r["text"] for r in s["reasons"][:3]) + ".")
     areas = []
     for a in (t or {}).get("areas") or []:
@@ -274,12 +324,7 @@ def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bo
     if not areas:
         areas = areas_for(s["factors"], p, s["reasons"])
     eff = (t or {}).get("effective_date") or ext.get("effective_date") or None
-    days = None
-    if eff:
-        try:
-            days = (datetime.fromisoformat(eff[:10]).date() - now().date()).days
-        except ValueError:
-            eff = None
+    days = (date.fromisoformat(eff) - now().date()).days if eff else None
     return {
         "id": n["id"], "title": n["title"], "headline": (t or {}).get("headline") or n["title"],
         "lead": ext.get("summary") or (n.get("text") or "")[:240], "url": n["url"], "source": n["source"], "source_id": n["source_id"],
@@ -297,6 +342,7 @@ def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bo
         "areas": areas[:4], "relevant": (t or {}).get("relevant") if isinstance((t or {}).get("relevant"), bool) else None,
         "triaged": bool(t), "has_insight": has_insight,
     }
+
 
 # ---------- Триаж (deepseek, топ-12 за вызов) ----------
 _tri_running: set[str] = set()
@@ -318,6 +364,7 @@ TRIAGE_PROMPT = """Ты аналитик Альфа-Банка. Для руко�
 "relevant":true|false,"areas":[{{"id":"id сферы","impact":"positive|negative|mixed (хорошо или плохо для компании)","effect":"как именно меняется, до 90 символов"}}],
 "urgency":1-3,"action":"первое действие, до 60 символов, глаголом","effective_date":"YYYY-MM-DD если в новости есть срок вступления или дата события, иначе пусто",
 "deadline_label":"короткая подпись срока, например 'с 1 января' или пусто"}}]}}"""
+
 
 def start_triage(uid: str, role: str, ids: list[str]) -> None:
     key = pkey(uid, role)
@@ -346,14 +393,15 @@ def start_triage(uid: str, role: str, ids: list[str]) -> None:
 
     threading.Thread(target=run, daemon=True).start()
 
+
 def triage(uid: str, role: str, ids: list[str]) -> int:
     p = profile.build(uid)
-    rows = [db.q1("SELECT id, title, text, source, published, extract_json FROM news WHERE id=?", (i,)) for i in ids]
+    rows = [news.get(i, uid=uid) for i in ids]
     rows = [r for r in rows if r]
     if not rows:
         return 0
     body = "\n\n".join(f"#{i + 1} [{r['source']}, {(r['published'] or '')[:10]}] {r['title']}\n"
-                       f"{(db.unj(r['extract_json'], {}) or {}).get('summary') or (r['text'] or '')[:500]}" for i, r in enumerate(rows))
+                       f"{validated(ExtractItem, r.get('extract')).get('summary') or (r['text'] or '')[:500]}" for i, r in enumerate(rows))
     rl = ROLES.get(role, ROLES["cfo"])
     sysm = TRIAGE_PROMPT.format(role=rl["label"], focus=rl["focus"], today=now().strftime("%Y-%m-%d"), profile=profile.brief(p, 5),
                                 areas=", ".join(f"{k} ({v})" for k, v in AREAS.items()))
@@ -361,27 +409,28 @@ def triage(uid: str, role: str, ids: list[str]) -> int:
                             role="agent", purpose="triage", max_tokens=4500, temperature=0.2)
     key = pkey(uid, role)
     n = 0
-    for x in data.get("items") or []:
-        try:
-            r = rows[int(x.get("i")) - 1]
-        except (TypeError, ValueError, IndexError):
+    entries = data.get("items") if isinstance(data, dict) else None
+    for raw in entries if isinstance(entries, list) else []:
+        x = validated(TriageItem, raw)
+        if not x or x["i"] > len(rows):
             continue
+        r = rows[x["i"] - 1]
         db.ex("INSERT OR REPLACE INTO triage(key,news_id,data_json,created) VALUES(?,?,?,?)", (key, r["id"], db.j(x), now().isoformat()))
         n += 1
     return n
-    invalidate_feed(uid)
 
 
 def triage_running(uid: str, role: str) -> bool:
     return pkey(uid, role) in _tri_running
 
+
 def reasons_for(uid: str, role: str, news_id: str) -> dict | None:
     """Причины попадания конкретной новости в ленту (для контекста агента)."""
     p = profile.build(uid)
-    n = db.q1("SELECT *, 1 AS n_sources FROM news WHERE id=?", (news_id,))
+    n = news.get(news_id, uid=uid)
     if not n or not p:
         return None
-    n["tags"] = db.unj(n.pop("tags_json"), {}) or {}
-    n["extract"] = db.unj(n.pop("extract_json"), None)
-    n["n_sources"] = max(1, db.q1("SELECT COUNT(DISTINCT source) c FROM news WHERE cluster_id=?", (n["cluster_id"] or n["id"],))["c"] or 1)
+    n["extract"] = validated(ExtractItem, n.get("extract"))
+    n["n_sources"] = max(1, db.q1("""SELECT COUNT(DISTINCT source) c FROM news WHERE cluster_id=?
+                                     AND COALESCE(user_uid,'')=?""", (n["cluster_id"] or n["id"], n["user_uid"] or ""))["c"])
     return score(n, p, role, prefs(uid, role))

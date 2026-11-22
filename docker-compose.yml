@@ -1,8 +1,10 @@
 services:
   alfi:
     build: .
-    image: alfi-news:1.0.0
+    image: alfi-news:1.3.0
     env_file: .env
+    environment:
+      ALFI_DEMO_MODE: ${ALFI_DEMO_MODE:-1}
     ports:
       - "8000:8000"
     volumes:

@@ -1,7 +1,9 @@
-"""свой бизнес: компания по текстовому описанию, uid вида U_TEST_xxxxxx.
+"""Тестовый режим: компания по текстовому описанию бизнеса.
 
-описание превращается в обычную запись компании, дальше работает тот же конвейер.
-платежей и группы у такой компании нет, это честно видно в профиле.
+Описание превращается в запись того же формата, что и синтетические данные кейса (df_Uid_data_hack),
+поэтому дальше работает обычный конвейер: профиль, лента, разбор, чат. Платежей и группы у такой
+компании нет, сервис честно показывает это как неполные данные.
+Разбор описания: Gemma в JSON-режиме, при сбое правила. uid вида U_TEST_xxxxxx.
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ import re
 from . import db, llm, profile, security
 from .taxonomy import COUNTRY_STEMS, SECTORS, count_hits, sector_of
 
+# Типичный ОКВЭД на случай, если модель не дала код: отрасль -> (код, название)
 SECTOR_OKVED = {
     "agro": ("46.21", "Торговля оптовая зерном, необработанным табаком, семенами и кормами"),
     "food": ("46.38", "Торговля оптовая прочими пищевыми продуктами"),
@@ -46,6 +49,7 @@ PROMPT = """Пользователь описывает свою компани�
 "products":{"credit":bool,"leasing":bool,"deposit":bool,"guarantees":bool,"factoring":bool,"salary":bool},
 "fts_countries":["СТРАНЫ ВЭД ЗАГЛАВНЫМИ"],"key_owner":bool}"""
 
+
 def _rules(text: str) -> dict:
     t = text.lower()
     rev = None
@@ -60,6 +64,7 @@ def _rules(text: str) -> dict:
                          "factoring": "факторинг" in t, "salary": "зарплатн" in t},
             "fts_countries": [c for c, st in COUNTRY_STEMS.items() if count_hits(t, st)], "workers": None, "age": None}
 
+
 def parse(text: str) -> tuple[dict, str]:
     try:
         d, _ = llm.chat_json([{"role": "system", "content": PROMPT}, {"role": "user", "content": security.wrap_untrusted(text)}],
@@ -69,6 +74,7 @@ def parse(text: str) -> tuple[dict, str]:
     except (llm.LLMError, ValueError):
         pass
     return _rules(text), "rules"
+
 
 def create(text: str) -> dict:
     text = re.sub(r"\s+", " ", text).strip()[:1200]
@@ -103,6 +109,7 @@ def create(text: str) -> dict:
     p = profile.build(uid)
     return {"uid": uid, "parsed_by": how, "title": p["title"], "sector_label": p["sector_label"], "revenue_label": p["revenue_label"],
             "features": p["features"], "note": "Платежей, группы и связей у тестовой компании нет: сервис покажет это как неполные данные."}
+
 
 TEMPLATES = [
     "Импортёр бытовой электроники и комплектующих из Китая, выручка 30 млрд ₽, Москва, кредитная линия, расчёты в юанях",

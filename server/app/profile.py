@@ -1,11 +1,18 @@
-"""профиль компании: признаки feat:*, группа, контрагенты, чувствительность к факторам."""
+"""Бизнес-контекст компании клиента из синтетических данных кейса.
+
+Собирает признаки (feat:*), группу, контрагентов по платежам, связи через физлиц,
+позицию в отрасли и чувствительность к 16 факторам. Каждый вывод ссылается на id признака,
+чтобы интерфейс и агент могли показать, на чём он основан.
+"""
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 
 from . import db
 from .taxonomy import FACTORS, SECTORS, country_list, region_stem, sector_label
 
+# Базовая чувствительность отраслей к факторам (экспертная таблица, 0..1)
 SECTOR_SENS: dict[str, dict[str, float]] = {
     "agro":         {"agro": 0.9, "trade": 0.6, "fx": 0.5, "logistics": 0.5, "tax": 0.3, "regulation": 0.4},
     "food":         {"agro": 0.6, "demand": 0.6, "inflation": 0.5, "regulation": 0.4, "logistics": 0.3},
@@ -32,6 +39,7 @@ PRODUCTS = {"rko": "Расчётный счёт", "gar": "Гарантии", "lo
             "zpp": "Зарплатный проект", "factoring": "Факторинг"}
 CL_TYPE = {"CLIENT": "Клиент банка", "CLOSE_CLIENT": "Закрытый клиент", "PROSPECT": "Потенциальный клиент"}
 
+
 def bn(x: float | None) -> str:
     x = x or 0
     if x >= 1e9:
@@ -40,13 +48,22 @@ def bn(x: float | None) -> str:
         return f"{x / 1e6:.1f}".replace(".", ",") + " млн ₽"
     return f"{x / 1e3:.0f} тыс ₽"
 
+
 def short_okved(name: str | None) -> str:
-    n = (name or "").split(",")[0].split(";")[0]
-    return n[:80]
+    # «Торговля оптовая твердым, жидким и газообразным топливом…»: после первой запятой не обрываем на прилагательном
+    parts = (name or "").split(";")[0].split(",")
+    n = parts[0]
+    for nxt in parts[1:]:
+        if not re.search(r"(ым|им|ой|ей|ых|их)$", n.strip()):
+            break
+        n += "," + nxt
+    return n.strip()[:80]
+
 
 def company_title(c: dict) -> str:
     city = (c.get("city") or "").replace("г. ", "")
     return f"{short_okved(c.get('okved_name'))}" + (f" · {city}" if city else "")
+
 
 def _side(uid: str, group_id: str | None, as_payer: bool) -> dict:
     """Контрагенты одной стороны. as_payer=True: кому компания платит (поставщики)."""
@@ -79,6 +96,7 @@ def _side(uid: str, group_id: str | None, as_payer: bool) -> dict:
         } for r, s in list(zip(ext, shares))[:8]],
     }
 
+
 def _group(c: dict) -> dict:
     gid = c.get("group_id")
     if not gid:
@@ -95,6 +113,7 @@ def _group(c: dict) -> dict:
         "sectors": [{"sector": k, "label": sector_label(k), "share": round(v, 3)} for k, v in sorted(secs.items(), key=lambda x: -x[1])[:6]],
     }
 
+
 def _links(uid: str) -> dict:
     """Связи через общих физлиц (учредители, руководители и т.п. в синтетике кейса)."""
     people = db.q("SELECT DISTINCT fid FROM persons WHERE uid=?", (uid,))
@@ -108,6 +127,7 @@ def _links(uid: str) -> dict:
     return {"persons": len(fids), "companies": [{"uid": r["uid"], "shared": r["shared"], "okved": short_okved(r["okved_name"]),
                                                  "sector": r["sector"], "revenue": r["revenue"]} for r in rows]}
 
+
 def _position(c: dict) -> dict:
     rev = c.get("revenue") or 0
     out = {}
@@ -117,12 +137,14 @@ def _position(c: dict) -> dict:
     out["note"] = "Доля и ранг посчитаны только по компаниям в выборке банка, это не доля рынка"
     return out
 
+
 def _combine(parts: list[tuple[float, str, str]]) -> tuple[float, list[dict]]:
     """Несколько независимых причин -> 1 - Π(1 - s), объяснения сохраняются."""
     p = 1.0
     for s, _, _ in parts:
         p *= 1 - max(0.0, min(1.0, s))
     return round(1 - p, 3), [{"text": t, "feat": f, "w": round(s, 2)} for s, t, f in parts]
+
 
 def _sensitivities(c: dict, sup: dict, cus: dict, grp: dict) -> dict[str, dict]:
     raw: dict[str, list[tuple[float, str, str]]] = {k: [] for k in FACTORS}
@@ -153,7 +175,8 @@ def _sensitivities(c: dict, sup: dict, cus: dict, grp: dict) -> dict[str, dict]:
         raw["trade"].append((0.45, f"ведёт ВЭД ({cs})", "feat:fts"))
         raw["fx"].append((0.45, f"валютная выручка или расходы по ВЭД ({cs})", "feat:fts"))
     if (c.get("negative") or 0) > 0:
-        # NEGATIVEMARK значит «есть ключевой собственник», а не «плохая компания»
+        # NEGATIVEMARK в кейсе: «наличие признака ключевого собственника». Это не негатив,
+        # а сигнал, что решения концентрируются у владельца: стратегические и регуляторные темы важнее
         raw["regulation"].append((0.1, "у компании есть ключевой собственник", "feat:owner"))
         raw["trade"].append((0.05, "у компании есть ключевой собственник", "feat:owner"))
     for side, name, fid in ((sup, "поставщике", "feat:suppliers"), (cus, "покупателе", "feat:customers")):
@@ -171,6 +194,7 @@ def _sensitivities(c: dict, sup: dict, cus: dict, grp: dict) -> dict[str, dict]:
         out[f] = {"factor": f, "label": FACTORS[f]["label"], "value": v, "why": sorted(why, key=lambda w: -w["w"])[:4]}
     return out
 
+
 def _sector_weights(c: dict, grp: dict, sup: dict, cus: dict) -> dict[str, float]:
     w: dict[str, float] = {c["sector"]: 1.0}
     for g in grp.get("sectors", []):
@@ -180,6 +204,7 @@ def _sector_weights(c: dict, grp: dict, sup: dict, cus: dict) -> dict[str, float
             w[g["sector"]] = max(w.get(g["sector"], 0), round(g["share"] * 0.4, 3))
     w[c["sector"]] = 1.0
     return w
+
 
 @lru_cache(maxsize=256)
 def build(uid: str) -> dict | None:
@@ -221,8 +246,10 @@ def build(uid: str) -> dict | None:
         "sensitivities": sens, "sector_weights": _sector_weights(c, grp, sup, cus),
     }
 
+
 def feature_map(p: dict) -> dict[str, dict]:
     return {f["id"]: f for f in p["features"]}
+
 
 def brief(p: dict, top_factors: int = 6) -> str:
     """Компактный текст профиля для промпта модели (без внутренних коэффициентов)."""
@@ -238,6 +265,7 @@ def brief(p: dict, top_factors: int = 6) -> str:
     top = sorted(p["sensitivities"].values(), key=lambda s: -s["value"])[:top_factors]
     lines.append("Главные каналы влияния: " + "; ".join(f"{s['label']} (" + ", ".join(w["text"] for w in s["why"][:2]) + ")" for s in top))
     return "\n".join(lines)
+
 
 def featured() -> list[dict]:
     """Демо-компании: крупный бизнес от 15 млрд, по одной-две на отрасль."""

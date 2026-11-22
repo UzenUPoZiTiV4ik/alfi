@@ -1,47 +1,43 @@
-"""поиск по новостям и аналитике банка: BM25 по стемам.
+"""Поиск по новостям и базе знаний: BM25 по стемам с бустами.
 
-индексы строятся лениво и сбрасываются после сбора новостей.
+Индексы строятся лениво в памяти и сбрасываются после сбора новостей (invalidate).
 """
 from __future__ import annotations
 
 import threading
 from datetime import datetime, timedelta, timezone
 
-from . import db, kb, nlp
+from . import db, kb, nlp, security
 from .taxonomy import FACTORS, SECTORS
 
 _lock = threading.Lock()
-_news: dict | None = None
+_generation = 0
 _kb: dict | None = None
 
 
 def invalidate() -> None:
-    global _news, _kb
+    global _kb, _generation
     with _lock:
-        _news = None
+        _generation += 1
         _kb = None
 
 
-def _news_index() -> dict:
-    global _news
+def generation() -> tuple:
     with _lock:
-        if _news is None:
-            rows = db.q("SELECT id, title, text, source, published, cluster_id, user_uid FROM news ORDER BY published DESC")
-            docs = [nlp.stems(r["title"]) * 3 + nlp.stems((r["text"] or "")[:1500]) for r in rows]
-            _news = {"rows": rows, "bm": nlp.BM25(docs)}
-        return _news
+        return (_generation, db.q1("SELECT kb FROM content_revision")["kb"])
 
 
 def _kb_index() -> dict:
     global _kb
+    kb.ensure_loaded()
     with _lock:
-        if _kb is None:
-            kb.ensure_loaded()
+        revision = db.q1("SELECT kb FROM content_revision")["kb"]
+        if _kb is None or _kb["revision"] != revision:
             rows = db.q("""SELECT c.id, c.doc_id, c.kind, c.page, c.text, c.quote, c.quote_verified, c.factors_json, c.sectors_json,
-                                  c.stance, c.horizon, d.title doc_title, d.date doc_date, d.stale
+                                  c.stance, c.horizon, d.title doc_title, d.date doc_date, d.stale, d.meta_json
                            FROM kb_chunks c JOIN kb_docs d ON d.id=c.doc_id""")
             docs = [nlp.stems(f"{r['text']} {r['quote'] or ''} {r['doc_title']}") for r in rows]
-            _kb = {"rows": rows, "bm": nlp.BM25(docs)}
+            _kb = {"revision": revision, "rows": rows, "bm": nlp.BM25(docs)}
         return _kb
 
 
@@ -59,18 +55,21 @@ def expand(query: str, factors: list[str] | None = None, sectors: list[str] | No
 
 def search_news(query: str, k: int = 8, days: int | None = 14, exclude: set[str] | None = None,
                 uid: str | None = None) -> list[dict]:
-    ix = _news_index()
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days else ""
-    out, seen = [], set(exclude or ())
-    for i, s in ix["bm"].top(nlp.stems(query), k * 6):
-        r = ix["rows"][i]
-        if r["id"] in seen or (r["cluster_id"] and r["cluster_id"] in seen) or (since and (r["published"] or "") < since):
+    visible, args = db.news_visibility_clause(uid)
+    rows = db.q(f"""SELECT id,title,text,source,published,cluster_id,user_uid FROM news
+                    WHERE {visible} AND COALESCE(published,'') >= ? ORDER BY published DESC""", (*args, since))
+    docs = [nlp.stems(row["title"]) * 3 + nlp.stems((row["text"] or "")[:1500]) for row in rows]
+    bm = nlp.BM25(docs)
+    excluded = exclude or set()
+    seen = set()
+    out = []
+    for i, s in bm.top(nlp.stems(query), len(rows)):
+        r = rows[i]
+        cluster = (r["user_uid"] or "", r["cluster_id"] or r["id"])
+        if cluster in seen or r["id"] in excluded or r["cluster_id"] in excluded:
             continue
-        if r["user_uid"] and r["user_uid"] != uid:  # чужие пользовательские новости не видны
-            continue
-        seen.add(r["id"])
-        if r["cluster_id"]:
-            seen.add(r["cluster_id"])
+        seen.add(cluster)
         out.append({"id": f"news:{r['id']}", "news_id": r["id"], "title": r["title"], "source": r["source"],
                     "published": r["published"], "text": (r["text"] or "")[:600], "score": round(s, 2)})
         if len(out) >= k:
@@ -79,7 +78,7 @@ def search_news(query: str, k: int = 8, days: int | None = 14, exclude: set[str]
 
 
 def search_kb(query: str, k: int = 8, factors: list[str] | None = None, sectors: list[str] | None = None,
-              kinds: tuple[str, ...] = ("thesis", "forecast", "para"), allow_stale: bool = True) -> list[dict]:
+              kinds: tuple[str, ...] = ("thesis", "forecast", "para"), allow_stale: bool = True, session: dict | None = None) -> list[dict]:
     """Тезисы получают буст 1,25, устаревшие документы коэффициент 0,6,
     совпадение фактора/отрасли тезиса с запросом ещё +30%."""
     ix = _kb_index()
@@ -91,6 +90,8 @@ def search_kb(query: str, k: int = 8, factors: list[str] | None = None, sectors:
         if s <= 0:
             continue
         r = ix["rows"][i]
+        if not security.can_access_kb_doc(session, r):
+            continue
         if r["kind"] not in kinds or (r["stale"] and not allow_stale):
             continue
         rf, rs = set(db.unj(r["factors_json"], [])), set(db.unj(r["sectors_json"], []))
@@ -115,11 +116,11 @@ def search_kb(query: str, k: int = 8, factors: list[str] | None = None, sectors:
     return out
 
 
-def bank_refs_for(factors: list[str], sectors: list[str], query: str, k: int = 2) -> list[dict]:
+def bank_refs_for(factors: list[str], sectors: list[str], query: str, session: dict, k: int = 2) -> list[dict]:
     """Ссылки на аналитику банка для карточки ленты.
 
     Строгий фильтр: тезис про тот же фактор или ту же отрасль и не из устаревшего материала,
     иначе к новости про пшеницу подставлялся обзор золота."""
     fs, ss = set(factors), set(sectors)
-    res = search_kb(query, k=12, factors=factors, sectors=sectors, kinds=("thesis",), allow_stale=False)
+    res = search_kb(query, k=12, factors=factors, sectors=sectors, kinds=("thesis",), allow_stale=False, session=session)
     return [r for r in res if (fs & set(r["factors"]) or ss & set(r["sectors"])) and r["score"] >= 3][:k]

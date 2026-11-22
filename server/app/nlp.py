@@ -1,6 +1,6 @@
-"""тексты: токены, стемминг, BM25, жаккар, нечёткая проверка цитат.
+"""Тексты: токены, стемминг Snowball (рус/англ), стоп-слова, BM25, Jaccard, нечёткая проверка цитат.
 
-эмбеддингов в списке моделей нет, поэтому поиск лексический.
+Эмбеддинг-моделей в разрешённом списке нет, поэтому поиск лексический: BM25 по стемам.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ STOP = set("""
 the a an of to in on for and or is are was were by with as at from that this be it its which
 """.split())
 
+
 @lru_cache(maxsize=200_000)
 def stem(w: str) -> str:
     w = w.lower().replace("ё", "е")
@@ -35,8 +36,10 @@ def stem(w: str) -> str:
         return _ru.stemWord(w)
     return w
 
+
 def tokens(text: str) -> list[str]:
     return [t.lower() for t in _TOKEN.findall(text or "")]
+
 
 def stems(text: str, keep_stop: bool = False) -> list[str]:
     out = []
@@ -46,11 +49,13 @@ def stems(text: str, keep_stop: bool = False) -> list[str]:
         out.append(stem(t))
     return out
 
+
 def jaccard(a: str, b: str) -> float:
     sa, sb = set(stems(a)), set(stems(b))
     if not sa or not sb:
         return 0.0
     return len(sa & sb) / len(sa | sb)
+
 
 def fuzzy_contains(haystack: str, needle: str, threshold: float = 0.8) -> tuple[bool, float]:
     """Есть ли цитата в тексте страницы: доля стемов цитаты, найденных в окне страницы.
@@ -64,7 +69,8 @@ def fuzzy_contains(haystack: str, needle: str, threshold: float = 0.8) -> tuple[
     hs = stems(haystack)
     if not hs:
         return False, 0.0
-    # OCR путает буквы, поэтому похожий стем на странице считаем совпадением
+    # OCR путает буквы («состовил», «доллора»): стем цитаты, которого нет на странице,
+    # заменяем на ближайший стем страницы с похожестью от 0,8
     page_set = set(hs)
     ns = [s if s in page_set or len(s) < 4 else (difflib.get_close_matches(s, page_set, n=1, cutoff=0.8) or [s])[0] for s in ns]
     need = Counter(ns)
@@ -79,7 +85,9 @@ def fuzzy_contains(haystack: str, needle: str, threshold: float = 0.8) -> tuple[
             break
     return best >= threshold, round(best, 3)
 
+
 _ELLIPSIS = re.compile(r"\s*(?:\.\.\.|…)\s*")
+
 
 def verify_quote(page_text: str, quote: str, threshold: float = 0.8) -> tuple[bool, float]:
     """Проверка цитаты, склеенной моделью из нескольких кусков через «...».
@@ -102,7 +110,9 @@ def verify_quote(page_text: str, quote: str, threshold: float = 0.8) -> tuple[bo
     s = min(scores)
     return s >= threshold, round(s, 3)
 
+
 NUM_RX = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)\s*(%|п\.?\s*п\.?|б\.?\s*п\.?|млрд|млн|трлн|тыс|₽|руб|\$|долл)?", re.IGNORECASE)
+
 
 def numbers(text: str) -> list[str]:
     """Значимые числа для проверки «цифры есть в источниках». Годы и мелкие порядковые числа пропускаем."""
@@ -118,6 +128,7 @@ def numbers(text: str) -> list[str]:
             continue
         out.append(v.rstrip("0").rstrip(".") if "." in v else v)
     return out
+
 
 class BM25:
     """Классический Okapi BM25 по стемам."""

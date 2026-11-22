@@ -5,6 +5,7 @@ csv -> компании и платежи, pdf -> ocr, тезисы и цита�
 """
 from __future__ import annotations
 
+from contextlib import closing
 import sqlite3
 import sys
 
@@ -19,7 +20,7 @@ def companies_loaded() -> bool:
     if not config.DB_PATH.exists():
         return False
     try:
-        with sqlite3.connect(config.DB_PATH) as c:
+        with closing(sqlite3.connect(config.DB_PATH)) as c:
             return c.execute("SELECT COUNT(*) FROM companies").fetchone()[0] > 0
     except sqlite3.Error:
         return False

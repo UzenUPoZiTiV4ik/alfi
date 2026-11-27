@@ -49,13 +49,15 @@ def personalization(sample: list[str] | None = None) -> dict:
 
 
 def ai_quality() -> dict:
-    rows = db.q("SELECT result_json, confidence FROM insights")
+    rows = db.q("SELECT result_json, confidence, readiness FROM insights")
     n = len(rows)
     rules_ok = rules_n = 0
-    crit = {"grounding": [], "personalization": [], "depth": [], "attribution": []}
-    revise = repaired = bank_cov = 0
+    crit = {"grounding": [], "personalization": [], "depth": [], "attribution": [], "source_fidelity": [], "no_overclaim": []}
+    revise = bank_cov = ready_n = 0
     for r in rows:
         res = db.unj(r["result_json"], {}) or {}
+        if (r.get("readiness") or res.get("readiness") or "ready") == "ready":
+            ready_n += 1
         for x in res.get("rules") or []:
             rules_ok += int(bool(x.get("ok")))
             rules_n += 1
@@ -67,10 +69,13 @@ def ai_quality() -> dict:
         revise += int(c.get("verdict") == "revise")
         bank_cov += int(bool((res.get("bank_view") or {}).get("points")))
     steps = db.q1("SELECT SUM(type='repair') rep, COUNT(DISTINCT run_id) runs FROM run_steps WHERE run_id IN (SELECT id FROM runs WHERE kind='insight')")
-    runs = db.q1("""SELECT COUNT(*) n, SUM(status='ok') ok, SUM(status='error') err, AVG(CASE WHEN status='ok' THEN cost_rub END) cost,
-                           AVG(CASE WHEN status='ok' THEN (julianday(finished)-julianday(started))*86400 END) sec FROM runs WHERE kind='insight'""")
+    runs = db.q1("""SELECT COUNT(*) n, SUM(status IN ('ok','needs_review')) ok, SUM(status='needs_review') needs_review,
+                           SUM(status='error') err, AVG(CASE WHEN status IN ('ok','needs_review') THEN cost_rub END) cost,
+                           AVG(CASE WHEN status IN ('ok','needs_review') THEN (julianday(finished)-julianday(started))*86400 END) sec
+                    FROM runs WHERE kind='insight'""")
     calls = db.q1("SELECT COUNT(*) n, SUM(ok) ok FROM llm_calls")
-    return {"insights": n, "avg_confidence": round(sum(r["confidence"] or 0 for r in rows) / n, 3) if n else None,
+    return {"insights": n, "ready_rate": round(ready_n / n, 3) if n else None,
+            "avg_confidence": round(sum(r["confidence"] or 0 for r in rows) / n, 3) if n else None,
             "rules_pass_rate": round(rules_ok / rules_n, 3) if rules_n else None,
             "critic": {k: round(sum(v) / len(v), 3) if v else None for k, v in crit.items()},
             "critic_revise_rate": round(revise / n, 3) if n else None, "bank_view_coverage": round(bank_cov / n, 3) if n else None,

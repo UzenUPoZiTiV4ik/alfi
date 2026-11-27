@@ -24,7 +24,10 @@ const stageOf = (t) => ({ context: 0, plan: 1, tool: 2, check: 2, llm: 3, verify
 const txt = (x) => (typeof x === 'string' ? x : x && (x.text || x.title || x.name || x.question || x.gap) || '');
 const arr = (x) => (Array.isArray(x) ? x : x ? [x] : []);
 const brief = (v) => (v == null ? '' : typeof v === 'string' ? v : Array.isArray(v) ? v.map(brief).filter(Boolean).join(', ') : typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k}: ${brief(x)}`).join('; ') : String(v));
-const CRIT_T = { grounding: 'опора на источники', personalization: 'персонализация', depth: 'глубина', attribution: 'атрибуция' };
+const CRIT_T = {
+  grounding: 'опора на источники', personalization: 'персонализация', depth: 'глубина',
+  attribution: 'атрибуция', source_fidelity: 'точность смысла источников', no_overclaim: 'без переноса роста рынка'
+};
 
 /* --- Пока агент работает --- */
 function runSkeleton(id) {
@@ -89,7 +92,7 @@ const URG = { now: 'Сейчас', week: 'На этой неделе', month: '�
 const STATUS = { reported: 'по сообщениям СМИ', unconfirmed: 'не подтверждено', unclear: 'не подтверждено', expected: 'ожидается' };
 const KIND_IMPACT = { risk: 'negative', chance: 'positive', mixed: 'mixed' };
 const areaImpact = (a) => a.impact || ({ up: 'positive', down: 'negative', mixed: 'mixed' })[a.direction] || '';
-const SRC_GROUPS = [['news', 'Новости'], ['web', 'Интернет'], ['bank', 'Аналитика Альфа-Банка'], ['data', 'Данные о компании'], ['other', 'Другие материалы']];
+const SRC_GROUPS = [['news', 'Новости'], ['web', 'Интернет'], ['bank', 'Аналитика Альфа-Банка'], ['user', 'Уточнения пользователя'], ['data', 'Данные о компании'], ['other', 'Другие материалы']];
 const srcGroup = (id) => { const k = id.split(':')[0]; return k === 'feat' || k === 'data' ? 'data' : SRC_GROUPS.some(([g]) => g === k) ? k : 'other'; };
 const cap = (s) => String(s || '').replace(/^./, (c) => c.toUpperCase());
 const MONTHS_G = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -102,14 +105,16 @@ const RULE_T = {
   refs_exist: 'Все ссылки ведут на найденные материалы', items_sourced: 'У рисков, возможностей и шагов есть источник',
   bank_attribution: 'Позиция банка взята только из материалов банка', bank_used: 'Найденная аналитика банка учтена',
   features: 'Учтены данные о компании', channels: 'Разобрано несколько путей влияния',
-  numbers: 'Цифры сверены с источниками', not_retelling: 'Выводы, а не пересказ новости', has_action: 'Есть конкретный шаг'
+  numbers: 'Цифры сверены с источниками', not_retelling: 'Выводы, а не пересказ новости', has_action: 'Есть конкретный шаг',
+  opportunity_conditions: 'У возможностей указаны условия реализации', user_clarifications_used: 'Учтены уточнения пользователя'
 };
 // Что не прошло проверку — по-человечески, без счётчика правил
 const RULE_FAIL = {
   refs_exist: 'часть ссылок не удалось открыть', items_sourced: 'не у всех пунктов указан источник',
   bank_attribution: 'не все пункты позиции банка взяты из его материалов', bank_used: 'не вся найденная аналитика банка учтена',
   features: 'данные о компании учтены не полностью', channels: 'разобран только один путь влияния',
-  numbers: 'для части цифр не нашли источник', not_retelling: 'часть выводов близка к пересказу новости', has_action: 'конкретного шага нет'
+  numbers: 'для части цифр не нашли источник', not_retelling: 'часть выводов близка к пересказу новости', has_action: 'конкретного шага нет',
+  opportunity_conditions: 'не для всех возможностей указаны условия реализации', user_clarifications_used: 'не все уточнения пользователя учтены в тексте'
 };
 
 function docHTML(r) {
@@ -120,22 +125,35 @@ function docHTML(r) {
   const acts = arr(r.actions).map(obj).sort((a, b) => urgRank(a.urgency) - urgRank(b.urgency));
   const made = madeAt((r.meta || {}).created);
   const qs = [...arr(r.questions), ...arr(r.data_gaps)].map(txt).filter(Boolean);
+  const clars = arr(r.clarifications).map(obj);
   const ids = Object.keys(SRC), bankN = ids.filter((id) => srcGroup(id) === 'bank').length;
+  const citedIds = ids.filter((id) => SRC[id] && SRC[id].cited !== false);
+  const extraIds = ids.filter((id) => SRC[id] && SRC[id].cited === false);
   const lead = txt(r.why_it_matters), src = it && safeUrl(it.url);
   const quiet = !areas.length && !acts.length, bankEmpty = !bv.summary && !pts.length, failed = rules.filter((x) => !x.ok);
+  const needsReview = r.readiness === 'needs_review';
+  const reviewReasons = arr(r.readiness_reasons).map(txt).filter(Boolean);
+  const disclaimer = r.disclaimer || 'Выводы сформированы AI Альфи на основе новостей и данных компании и не являются официальной позицией Альфа-Банка.';
   const sign = (im) => (SIGN[im] ? `<i class="b-sign ${SIGN[im][0]}" aria-hidden="true">${SIGN[im][1]}</i>` : '');
   const meta = (parts) => { const p = parts.filter(Boolean); return p.length ? `<span class="b-meta">${p.join(' · ')}</span>` : ''; };
   const list = (xs, f) => `<ul class="b-list">${xs.map((x) => `<li>${f(x)}</li>`).join('')}</ul>`;
   const titled = (x) => `${x.title ? `<b>${esc(x.title)}.</b> ` : ''}${esc(x.text || '')}`;
-  const row = (id, title, n, body) => (body ? `<details class="b-row" id="${id}"><summary><span>${title}</span>${n ? `<span class="b-row__n">${n}</span>` : ''}</summary><div class="b-row__in">${body}</div></details>` : '');
+  const row = (id, title, n, body, open = false) => (body ? `<details class="b-row" id="${id}"${open ? ' open' : ''}><summary><span>${title}</span>${n ? `<span class="b-row__n">${n}</span>` : ''}</summary><div class="b-row__in">${body}</div></details>` : '');
   const sec = (title, body, cls = '') => `<section class="b-sec b-part ${cls}">${title ? `<h4 class="b-h">${title}</h4>` : ''}${body}</section>`;
 
+  const warnBox = needsReview ? `<div class="b-warn" role="alert">
+      <p class="b-warn__t">Разбор требует проверки</p>
+      ${reviewReasons.length ? `<ul class="b-warn__l">${reviewReasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="b-warn__x">В разборе остались неподтверждённые данные или противоречия между источниками.</p>'}
+    </div>` : '';
+
   const cover = `<header class="b-cover b-part">
-      <p class="b-kind">${quiet ? '' : sign(KIND_IMPACT[r.kind])}${quiet ? 'К сведению' : KIND[r.kind] || 'К сведению'}${made ? `<span class="b-kind__at"><span>Собран </span>${esc(made)}</span>` : ''}</p>
+      <p class="b-kind">${quiet ? '' : sign(KIND_IMPACT[r.kind])}${quiet ? 'К сведению' : KIND[r.kind] || 'К сведению'}${needsReview ? '<span class="b-badge-warn">Требует проверки</span>' : ''}${made ? `<span class="b-kind__at"><span>Собран </span>${esc(made)}</span>` : ''}</p>
       <h3 class="b-title">${esc(r.headline || (it && (it.headline || it.title)) || 'Разбор события')}</h3>
+      ${warnBox}
       ${lead ? `<p class="b-lead" data-clamp>${esc(tidy(lead))}</p>` : ''}
+      <p class="b-disc" role="note"><b>Вывод AI Альфи:</b> ${esc(disclaimer)}</p>
       ${ids.length || src ? `<p class="b-trust">
-        ${ids.length ? `<button type="button" class="b-trust__i" data-open="b-src">${ids.length} ${plural(ids.length, 'источник', 'источника', 'источников')}</button>` : ''}
+        ${ids.length ? `<button type="button" class="b-trust__i" data-open="b-src">${ids.length} ${plural(ids.length, 'источник', 'источника', 'источников')}${extraIds.length ? ` (включая ${extraIds.length} доп.)` : ''}</button>` : ''}
         ${src ? `<a class="b-trust__i" href="${esc(src)}" target="_blank" rel="noopener noreferrer">${it.source ? `Новость в ${esc(it.source)}` : 'Открыть новость'}<svg class="ic" aria-hidden="true"><use href="#i-arrow-ur"/></svg></a>` : ''}
       </p>` : ''}
       ${r.demo ? '<p class="b-demo">Демо-разбор: сервис анализа сейчас недоступен, поэтому текст собран по шаблону из данных ленты, профиля компании и аналитики банка.</p>' : ''}
@@ -147,7 +165,7 @@ function docHTML(r) {
     return why ? `<details class="b-map__i"><summary>${head}</summary><p>${esc(why)}</p></details>` : `<div class="b-map__i"><div class="b-map__s">${head}</div></div>`;
   }).join('')}</div>`);
 
-  const act = sec('Что делать', acts.length
+  const act = sec('Что делать <span class="b-tag-ai">Вывод AI</span>', acts.length
     ? `<ol class="b-acts">${acts.map((x) => `<li><p class="b-acts__when${x.urgency === 'now' ? ' is-now' : ''}">${esc(URG[x.urgency] || x.urgency || '')}</p><div><p class="b-acts__t">${esc(x.title || x.text || '')}</p>${x.title && x.text ? `<p class="b-acts__x">${esc(x.text)}</p>` : ''}${meta([x.owner && esc(x.owner), x.product && `продукт банка: ${esc(x.product)}`])}</div></li>`).join('')}</ol>`
     : '<p class="b-text b-text--muted">Срочных действий не нужно, достаточно следить за ситуацией</p>');
 
@@ -156,29 +174,40 @@ function docHTML(r) {
       ${bv.summary ? `<p class="b-text">${esc(bv.summary)}</p>` : ''}
       ${pts.length ? list(pts, (x) => `${esc(x.text)}${x.support != null && x.support < 0.3 ? meta(['пересказ, дословной цитаты в отчёте банка нет']) : ''}`) : ''}
       ${!bv.summary && !pts.length ? '<p class="b-text b-text--muted">В аналитике банка по этой теме прямых материалов нет</p>' : ''}
-      ${bv.summary || pts.length ? `<p class="b-bank__f">Из аналитики банка, отдельно от выводов Альфи${bankN ? ` · <button type="button" data-open="b-src">${bankN} ${plural(bankN, 'материал', 'материала', 'материалов')}</button>` : ''}</p>` : ''}
+      ${bv.summary || pts.length ? `<p class="b-bank__f">Официальная аналитика банка, отдельно от выводов AI Альфи${bankN ? ` · <button type="button" data-open="b-src">${bankN} ${plural(bankN, 'материал', 'материала', 'материалов')}</button>` : ''}</p>` : ''}
     </div>`);
 
-  const sources = SRC_GROUPS.map(([g, label]) => {
-    const xs = ids.filter((id) => srcGroup(id) === g);
-    return xs.length ? `<div class="b-srcg"><p class="b-sub">${label}<span>${xs.length}</span></p><ul class="b-srcs">${xs.map((id) => { const x = SRC[id]; return `<li><button type="button" data-pop="${esc(id)}"><span>${esc(ruDate(x.title || id))}</span>${g === 'bank' && x.verified === false ? '<small>без дословной цитаты</small>' : g === 'data' && x.text ? `<small>${esc(tidy(x.text))}</small>` : ''}</button></li>`; }).join('')}</ul></div>` : '';
+  const renderSrcGroup = (subset, suffix = '') => SRC_GROUPS.map(([g, label]) => {
+    const xs = subset.filter((id) => srcGroup(id) === g);
+    return xs.length ? `<div class="b-srcg"><p class="b-sub">${label}${suffix}<span>${xs.length}</span></p><ul class="b-srcs">${xs.map((id) => { const x = SRC[id]; return `<li><button type="button" data-pop="${esc(id)}"><span>${esc(ruDate(x.title || id))}</span>${g === 'bank' && x.verified === false ? '<small>без дословной цитаты</small>' : (g === 'data' || g === 'user') && x.text ? `<small>${esc(tidy(x.text))}</small>` : ''}</button></li>`; }).join('')}</ul></div>` : '';
   }).join('');
+
+  const sources = renderSrcGroup(citedIds) + (extraIds.length ? `<div class="b-srcextra"><p class="b-sub-ext">Дополнительные проверенные источники</p>${renderSrcGroup(extraIds)}</div>` : '');
   const what = facts.length
     ? list(facts, (f) => `${esc(f.text || '')}${STATUS[f.status] ? meta([STATUS[f.status]]) : ''}`)
     : w.summary ? `<p class="b-text">${esc(w.summary)}</p>` : '';
   const rows = [
-    row('b-facts', 'Что случилось', facts.length, what && what + (w.timing ? `<p class="b-note">Сроки: ${esc(brief(w.timing).replace(/^[А-ЯЁ](?=[а-яё])/, (c) => c.toLowerCase()))}</p>` : '')),
-    row('b-risks', 'Риски', risks.length, risks.length && list(risks, (x) => `${titled(x)}${meta([x.probability && `вероятность ${PROB[x.probability] || esc(x.probability)}`, x.horizon && esc(tidy(x.horizon))])}`)),
-    row('b-opps', 'Возможности', opps.length, opps.length && list(opps, (x) => `${titled(x)}${meta([x.horizon && esc(tidy(x.horizon))])}`)),
-    row('b-scen', 'Сценарии', scen.length, scen.length && list(scen, (x) => `<b>${esc(cap(x.name || x.title))}.</b> ${esc(x.text || '')}${x.trigger ? meta([`Признак: ${esc(x.trigger)}`]) : ''}`)),
-    row('b-ask', 'Что уточнить в компании', qs.length, qs.length && list(qs, (q) => esc(q))),
+    row('b-facts', 'Факты из источников', facts.length, what && what + (w.timing ? `<p class="b-note">Сроки: ${esc(brief(w.timing).replace(/^[А-ЯЁ](?=[а-яё])/, (c) => c.toLowerCase()))}</p>` : '')),
+    row('b-risks', 'Риски (вывод AI)', risks.length, risks.length && list(risks, (x) => `${titled(x)}${meta([x.probability && `вероятность ${PROB[x.probability] || esc(x.probability)}`, x.horizon && esc(tidy(x.horizon))])}`)),
+    row('b-opps', 'Возможности и условия (вывод AI)', opps.length, opps.length && list(opps, (x) => `${titled(x)}${x.conditions ? `<p class="b-cond"><b>Условия реализации:</b> ${esc(x.conditions)}</p>` : ''}${meta([x.horizon && esc(tidy(x.horizon))])}`)),
+    row('b-scen', 'Сценарии (вывод AI)', scen.length, scen.length && list(scen, (x) => `<b>${esc(cap(x.name || x.title))}.</b> ${esc(x.text || '')}${x.trigger ? meta([`Признак: ${esc(x.trigger)}`]) : ''}`)),
+    row('b-ask', 'Что уточнить и пробелы данных', qs.length, qs.length && list(qs, (q) => esc(q))),
     row('b-src', 'Источники', ids.length, sources),
-    row('b-checks', 'Проверка разбора', '', rules.length && (failed.length
-      ? `<p class="b-text">Перед решением перепроверьте:</p><ul class="b-checks">${failed.map((x) => `<li class="is-no"><i aria-hidden="true">!</i><span>${cap(esc(RULE_FAIL[x.id] || RULE_T[x.id] || x.name))}</span></li>`).join('')}</ul>`
-      : '<p class="b-text">Ссылки, цифры и позиция банка сверены с источниками.</p>'))
+    row('b-checks', 'Проверка разбора', '', rules.length && (failed.length || needsReview
+      ? `<p class="b-text">Перед решением перепроверьте:</p><ul class="b-checks">${failed.map((x) => `<li class="is-no"><i aria-hidden="true">!</i><span>${cap(esc(RULE_FAIL[x.id] || RULE_T[x.id] || x.name))}</span></li>`).join('')}${arr(r.contradictions).map((c) => `<li class="is-no"><i aria-hidden="true">!</i><span>Противоречие: ${esc(c)}</span></li>`).join('')}</ul>`
+      : '<p class="b-text">Ссылки, цифры, условия и позиция банка сверены с источниками.</p>'), needsReview)
   ].join('');
 
-  return `<article class="b-doc">${cover}${act}${map}${bank}${rows ? sec('Подробнее', `<div class="b-rows">${rows}</div>`) : ''}
+  const clarifyBox = `<form class="b-clar b-part" data-clar-form>
+      <p class="b-clar__h">Уточнить контекст вашей компании</p>
+      ${clars.length ? `<ul class="b-clar__list">${clars.map((c) => `<li>${esc(c.text)}</li>`).join('')}</ul>` : ''}
+      <div class="b-clar__row">
+        <input type="text" class="a-input" name="clar" maxlength="600" placeholder="Например: у нас 80% долга по фиксированной ставке или нет отгрузок через Новороссийск">
+        <button class="btn btn--secondary" type="submit">Учесть и обновить</button>
+      </div>
+    </form>`;
+
+  return `<article class="b-doc">${cover}${act}${map}${bank}${rows ? sec('Подробнее', `<div class="b-rows">${rows}</div>`) : ''}${clarifyBox}
     <div class="b-rate b-part" data-rate-box><span>Разбор полезен?</span><button class="btn btn--secondary" type="button" data-rate="5">Да</button><button class="btn btn--secondary" type="button" data-rate="1">Нет</button></div></article>`;
 }
 function footHTML() {
@@ -234,7 +263,12 @@ function paintRun(id) {
   if (insId !== id || !ins.open) return;
   const R = S.runs[id]; if (!R) return;
   if (R.result && R.done) {
-    if (insBody.dataset.view !== 'doc:' + id) { const was = insBody.dataset.view === 'run:' + id; insBody.dataset.view = 'doc:' + id; showDoc(id, true); if (was) toast('Разбор готов'); }
+    if (insBody.dataset.view !== 'doc:' + id) {
+      const was = insBody.dataset.view === 'run:' + id;
+      insBody.dataset.view = 'doc:' + id;
+      showDoc(id, true);
+      if (was) toast(R.result.readiness === 'needs_review' ? 'Разбор требует проверки' : 'Разбор готов');
+    }
     return;
   }
   if (insBody.dataset.view !== 'run:' + id) { insBody.dataset.view = 'run:' + id; insFoot.hidden = true; runSkeleton(id); runTimer(id); }
@@ -252,7 +286,14 @@ function startRun(id, force) {
   h.done.catch((e) => { R.error = R.error || e.message; }).finally(() => {
     R.done = true;
     if (S.runs[id] !== R) return;
-    if (R.result) { const it = byId(id); if (it && !it.has_insight) { it.has_insight = true; renderFeed(true); } }
+    if (R.result) {
+      const it = byId(id);
+      if (it) {
+        it.has_insight = true;
+        it.insight_readiness = R.result.readiness || 'ready';
+        renderFeed(true);
+      }
+    }
     // небольшая пауза, чтобы было видно, что все этапы закрылись
     setTimeout(() => { if (S.runs[id] === R) paintRun(id); }, R.result && !reduce ? 650 : 0);
     if (insId === id) runUpdate(id);
@@ -287,6 +328,26 @@ async function openInsight(id, force) {
 ins.addEventListener('close', () => { clearInterval(insTimer); hidePop(); if (spy) spy.disconnect(); });
 ins.addEventListener('cancel', (e) => { if (!rPop.hidden) { e.preventDefault(); hidePop(); } });
 insBody.addEventListener('scroll', hidePop, { passive: true });
+ins.addEventListener('submit', async (e) => {
+  const form = e.target.closest('[data-clar-form]');
+  if (!form || !insId) return;
+  e.preventDefault();
+  const input = form.querySelector('input[name="clar"]'), btn = form.querySelector('button[type="submit"]');
+  const text = (input && input.value || '').trim();
+  if (text.length < 5) { toast('Напишите уточнение хотя бы из 5 символов'); return; }
+  const gen = S.sessionGen, id = insId;
+  if (btn) btn.disabled = true;
+  try {
+    await API.post(`/api/insight/${encodeURIComponent(id)}/clarify`, { text });
+    if (gen !== S.sessionGen) return;
+    toast('Уточнение сохранено, обновляем разбор');
+    openInsight(id, true);
+  } catch (err) {
+    if (gen === S.sessionGen) toast(err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
 ins.addEventListener('click', async (e) => {
   let t;
   if ((t = e.target.closest('[data-pop]'))) { if (rPop.dataset.for === t.dataset.pop) hidePop(); else showPop(t, t.dataset.pop); return; }
@@ -308,6 +369,9 @@ ins.addEventListener('click', async (e) => {
     }
     const box = t.closest('[data-rate-box]'); if (box) box.textContent = +t.dataset.rate >= 4 ? 'Спасибо за оценку' : 'Спасибо, учтём в следующих разборах';
   }
+});
+document.addEventListener('alfi:open-insight', (e) => {
+  if (e.detail && e.detail.id) openInsight(e.detail.id, !!e.detail.force);
 });
 
 function resetInsight() {

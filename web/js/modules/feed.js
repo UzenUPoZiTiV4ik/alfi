@@ -50,18 +50,18 @@ function card(it, noBank) {
           : areas.length ? `<ul class="f-imp" aria-label="Что меняется для компании">${areas.map((a) => { const g = sign(a); const e = String(a.effect || '').trim(), e2 = /^[А-ЯЁA-Z][а-яёa-z]/.test(e) ? e[0].toLowerCase() + e.slice(1) : e; return `<li class="${g[0]}"><span class="f-imp__s" role="img" aria-label="${g[2]}" title="${g[2]}">${g[1]}</span><p><b>${esc(a.label)}</b>${e2 ? `: ${esc(e2)}` : ''}</p></li>`; }).join('')}</ul>`
           : it.lead ? `<p class="f-lead">${esc(cut(it.lead, 220))}</p>` : ''}
         ${step || bankUrl ? `<div class="f-panel${step && bankUrl ? ' is-two' : ''}">
-          ${step ? `<div class="f-panel__c"><p class="f-panel__k">Что сделать</p><p class="f-panel__t">${esc(step)}</p></div>` : ''}
+          ${step ? `<div class="f-panel__c"><p class="f-panel__k">Что сделать <span>вывод AI</span></p><p class="f-panel__t">${esc(step)}</p></div>` : ''}
           ${bankUrl ? `<a class="f-panel__c f-panel__bank" href="${esc(bankUrl)}" target="_blank" rel="noopener" title="${esc(bank.doc_title)}"><p class="f-panel__k"><svg class="ic" aria-hidden="true"><use href="#i-bank"/></svg>Альфа-Банк<span>стр. ${esc(bank.page)}</span></p><p class="f-panel__q">${esc(bank.text)}</p></a>` : ''}
         </div>` : ''}
       </div>
       <footer class="a-card__acts f-acts">
-        <button class="btn ${it.has_insight || it.urgency >= 3 ? 'btn--dark' : 'btn--secondary'}" data-ins="${esc(it.id)}">${it.has_insight ? 'Открыть разбор' : 'Подготовить разбор'}</button>
+        <button class="btn ${it.has_insight || it.urgency >= 3 ? 'btn--dark' : 'btn--secondary'}" data-ins="${esc(it.id)}">${it.has_insight ? (it.insight_readiness === 'needs_review' ? 'Проверить разбор' : 'Открыть разбор') : 'Подготовить разбор'}</button>
         <button class="f-ask" data-askabout="${esc(it.id)}" data-askhelper="${esc(mate.id)}" aria-label="Задать вопрос ${mate.all ? 'Альфи' : `помощнику «${esc(mate.name)}»`} об этой новости" title="${esc(mate.all ? 'Альфи: все темы' : `Помощник «${mate.name}»: ${mate.task || mate.watch}`)}"><span class="f-ask__ava" data-ava="${esc(mate.id)}"></span><span class="f-ask__t">Задать вопрос</span><span class="f-ask__s" aria-hidden="true">Спросить</span></button>
         ${it.user || isRead(it) ? '' : `<button class="f-nope" type="button" data-nope="${esc(it.id)}" aria-label="Скрыть: не касается компании" title="Скрыть и показывать похожие реже">Не про нас</button>`}
       </footer>
     </article>`;
 }
-const sigOf = (it) => [S.gone.has(it.id), isRead(it), S.useful.has(it.id), it.has_insight, it.urgency, (it.areas || []).map((a) => a.id + a.impact).join(), it.relevance, it.helper, it.action, it.kind].join('|');
+const sigOf = (it) => [S.gone.has(it.id), isRead(it), S.useful.has(it.id), it.has_insight, it.insight_readiness || '', it.urgency, (it.areas || []).map((a) => a.id + a.impact).join(), it.relevance, it.helper, it.action, it.kind].join('|');
 
 // Лента не перерисовывается целиком: карточки переиспользуются, новые проявляются, остальные съезжают (FLIP)
 function renderFeed(quiet) {

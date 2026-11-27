@@ -87,8 +87,13 @@ def docs() -> list[dict]:
     return out
 
 
+def doc_row(doc_id: str) -> dict | None:
+    """Сырая запись документа для проверок доступа и отдачи PDF."""
+    return db.q1("SELECT * FROM kb_docs WHERE id=?", (doc_id,))
+
+
 def doc(doc_id: str) -> dict | None:
-    d = db.q1("SELECT * FROM kb_docs WHERE id=?", (doc_id,))
+    d = doc_row(doc_id)
     if not d:
         return None
     d["stale"] = bool(d["stale"])

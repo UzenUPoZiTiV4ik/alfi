@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS group_stats (group_id TEXT PRIMARY KEY, n INTEGER, re
 
 CREATE TABLE IF NOT EXISTS news (
   id TEXT PRIMARY KEY, url TEXT, title TEXT, text TEXT, source TEXT, source_id TEXT, origin TEXT,
-  published TEXT, fetched TEXT, cluster_id TEXT, tags_json TEXT, extract_json TEXT, user_uid TEXT
+  published TEXT, fetched TEXT, cluster_id TEXT, tags_json TEXT, extract_json TEXT, user_uid TEXT,
+  content_hash TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_news_pub ON news(published);
 CREATE INDEX IF NOT EXISTS ix_news_cluster ON news(cluster_id);
@@ -69,8 +70,15 @@ CREATE TABLE IF NOT EXISTS active_insights (
 );
 CREATE TABLE IF NOT EXISTS insights (
   key TEXT, news_id TEXT, run_id TEXT, result_json TEXT, confidence REAL, created TEXT,
+  content_hash TEXT DEFAULT '', readiness TEXT DEFAULT 'ready', clarification_hash TEXT DEFAULT '',
   PRIMARY KEY (key, news_id)
 );
+CREATE TABLE IF NOT EXISTS clarifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uid TEXT NOT NULL, role TEXT NOT NULL, news_id TEXT NOT NULL,
+  text TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'user', ts TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_clar_scope ON clarifications(uid, role, news_id);
 CREATE TABLE IF NOT EXISTS triage (
   key TEXT, news_id TEXT, data_json TEXT, created TEXT, PRIMARY KEY (key, news_id)
 );
@@ -149,28 +157,41 @@ def init() -> None:
     conn().executescript(SCHEMA)
     with transaction() as connection:
         # Revision counters keep feed/KB caches coherent across processes and bulk imports.
-        for table in ("news", "kb_docs", "kb_chunks", "triage", "feedback_state", "insights", "kv", "team_schedules", "ingest_log", "companies"):
+        for table in ("news", "kb_docs", "kb_chunks", "triage", "feedback_state", "insights", "clarifications", "kv", "team_schedules", "ingest_log", "companies"):
             assignment = "feed=feed+1,kb=kb+1" if table.startswith("kb_") else "feed=feed+1"
             for operation in ("INSERT", "UPDATE", "DELETE"):
                 connection.execute(f"""CREATE TRIGGER IF NOT EXISTS rev_{table}_{operation} AFTER {operation} ON {table}
                                        BEGIN UPDATE content_revision SET {assignment} WHERE id=1; END""")
         migration = "scoped_news_feedback_v1"
-        if connection.execute("SELECT 1 FROM schema_migrations WHERE name=?", (migration,)).fetchone():
-            return
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(news)")}
-        if "user_uid" not in columns:
-            connection.execute("ALTER TABLE news ADD COLUMN user_uid TEXT")
-        # URL и владелец уникальны вместе. Сохраняем старые id и все ссылки на них.
-        connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_news_owner_url ON news(COALESCE(user_uid,''), trim(url))")
-        connection.execute("""UPDATE news AS n SET cluster_id=id WHERE cluster_id IS NOT NULL
-                              AND NOT EXISTS (SELECT 1 FROM news AS rep WHERE rep.id=n.cluster_id
-                              AND COALESCE(rep.user_uid,'')=COALESCE(n.user_uid,''))""")
-        # Старый журнал не хранил ключи факторов. При первом изменении их передаёт ranking.
-        connection.execute("""INSERT OR REPLACE INTO feedback_state(user_uid,role,news_id,state)
-                              SELECT uid,role,news_id,CASE kind WHEN 'undo' THEN 'neutral' ELSE kind END
-                              FROM feedback WHERE kind IN ('useful','not_relevant','undo')
-                              AND uid IS NOT NULL AND role IS NOT NULL AND news_id IS NOT NULL ORDER BY id""")
-        connection.execute("INSERT INTO schema_migrations(name) VALUES(?)", (migration,))
+        if not connection.execute("SELECT 1 FROM schema_migrations WHERE name=?", (migration,)).fetchone():
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(news)")}
+            if "user_uid" not in columns:
+                connection.execute("ALTER TABLE news ADD COLUMN user_uid TEXT")
+            # URL и владелец уникальны вместе. Сохраняем старые id и все ссылки на них.
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_news_owner_url ON news(COALESCE(user_uid,''), trim(url))")
+            connection.execute("""UPDATE news AS n SET cluster_id=id WHERE cluster_id IS NOT NULL
+                                  AND NOT EXISTS (SELECT 1 FROM news AS rep WHERE rep.id=n.cluster_id
+                                  AND COALESCE(rep.user_uid,'')=COALESCE(n.user_uid,''))""")
+            # Старый журнал не хранил ключи факторов. При первом изменении их передаёт ranking.
+            connection.execute("""INSERT OR REPLACE INTO feedback_state(user_uid,role,news_id,state)
+                                  SELECT uid,role,news_id,CASE kind WHEN 'undo' THEN 'neutral' ELSE kind END
+                                  FROM feedback WHERE kind IN ('useful','not_relevant','undo')
+                                  AND uid IS NOT NULL AND role IS NOT NULL AND news_id IS NOT NULL ORDER BY id""")
+            connection.execute("INSERT INTO schema_migrations(name) VALUES(?)", (migration,))
+
+        migration_v2 = "final_consistency_v2"
+        if not connection.execute("SELECT 1 FROM schema_migrations WHERE name=?", (migration_v2,)).fetchone():
+            news_cols = {row[1] for row in connection.execute("PRAGMA table_info(news)")}
+            if "content_hash" not in news_cols:
+                connection.execute("ALTER TABLE news ADD COLUMN content_hash TEXT")
+            ins_cols = {row[1] for row in connection.execute("PRAGMA table_info(insights)")}
+            if "content_hash" not in ins_cols:
+                connection.execute("ALTER TABLE insights ADD COLUMN content_hash TEXT DEFAULT ''")
+            if "readiness" not in ins_cols:
+                connection.execute("ALTER TABLE insights ADD COLUMN readiness TEXT DEFAULT 'ready'")
+            if "clarification_hash" not in ins_cols:
+                connection.execute("ALTER TABLE insights ADD COLUMN clarification_hash TEXT DEFAULT ''")
+            connection.execute("INSERT INTO schema_migrations(name) VALUES(?)", (migration_v2,))
 
 
 def q(sql: str, args: Iterable[Any] = ()) -> list[dict]:
@@ -222,47 +243,38 @@ def news_visibility_clause(uid: str | None, alias: str = "") -> tuple[str, tuple
     return f"(COALESCE({owner},'') IN ('', ?))", (uid or "",)
 
 
-_FEEDBACK_DELTA = {"useful": 0.15, "not_relevant": -0.2, "neutral": 0.0}
+def ping() -> bool:
+    return bool(q1("SELECT 1 AS ready"))
 
 
-def set_feedback(uid: str, role: str, news_id: str, kind: str, keys: Iterable[str] = ()) -> dict:
-    """Применить целевое состояние; undo снимает скрытие, undo_useful снимает лайк."""
-    undo = {"undo": "not_relevant", "undo_useful": "useful"}
-    if kind not in _FEEDBACK_DELTA and kind not in undo:
-        raise ValueError("Неизвестная команда оценки")
-    key = f"{uid}|{role}"
-    address = (uid, role, news_id)
-    keys = list(dict.fromkeys(keys))
-    visible, args = news_visibility_clause(uid)
-    with transaction() as connection:
-        if not q1(f"SELECT 1 FROM news WHERE id=? AND {visible}", (news_id, *args)):
-            raise ValueError("Новость не найдена")
-        prev = q1("SELECT state,keys_json FROM feedback_state WHERE user_uid=? AND role=? AND news_id=?", address)
-        old_state = prev["state"] if prev else "neutral"
-        new_state = kind
-        if kind in undo:
-            new_state = "neutral" if old_state == undo[kind] else old_state
-        prefs = q1("SELECT weights_json FROM user_prefs WHERE key=?", (key,))
-        weights = unj(prefs["weights_json"], {}) if prefs else {}
-        if new_state == old_state:
-            return {"state": old_state, "weights": weights}
+def counts() -> dict[str, int]:
+    return {
+        "news": q1("SELECT COUNT(*) n FROM news")["n"],
+        "companies": q1("SELECT COUNT(*) n FROM companies")["n"],
+        "kb_chunks": q1("SELECT COUNT(*) n FROM kb_chunks")["n"],
+    }
 
-        # Храним сумму до ограничения диапазона: снятие оценки обратимо даже при насыщении веса.
-        raw = q1("SELECT weights_json FROM feedback_totals WHERE key=?", (key,))
-        totals = unj(raw["weights_json"]) if raw else dict(weights)
-        old_keys = unj(prev["keys_json"], [k for k in keys if k in weights]) if prev else []
-        new_keys = keys if new_state != "neutral" else []
-        for factor in set(old_keys) | set(new_keys):
-            previous = _FEEDBACK_DELTA[old_state] if factor in old_keys else 0.0
-            current = _FEEDBACK_DELTA[new_state] if factor in new_keys else 0.0
-            totals[factor] = round(totals.get(factor, 1.0) + current - previous, 3)
-        weights = {k: min(1.6, max(0.3, v)) for k, v in totals.items()}
-        ts = datetime.now(timezone.utc).isoformat()
-        connection.execute("INSERT OR REPLACE INTO feedback_state VALUES(?,?,?,?,?)", (*address, new_state, j(new_keys)))
-        connection.execute("INSERT OR REPLACE INTO feedback_totals VALUES(?,?)", (key, j(totals)))
-        connection.execute("INSERT OR REPLACE INTO user_prefs VALUES(?,?,?)", (key, j(weights), ts))
-        connection.execute("INSERT INTO feedback(ts,uid,role,news_id,kind) VALUES(?,?,?,?,?)", (ts, *address, kind))
-        return {"state": new_state, "weights": weights}
+
+def feed_revision() -> int:
+    row = q1("SELECT feed FROM content_revision WHERE id=1")
+    return int(row["feed"]) if row else 0
+
+
+def kb_revision() -> int:
+    row = q1("SELECT kb FROM content_revision WHERE id=1")
+    return int(row["kb"]) if row else 0
+
+
+def last_ingest_summary() -> dict | None:
+    return q1("SELECT finished, new, sources FROM ingest_log ORDER BY id DESC LIMIT 1")
+
+
+def recent_pref_keys(limit: int = 8) -> list[dict]:
+    return q(
+        "SELECT substr(key, 1, instr(key, '|') - 1) uid, substr(key, instr(key, '|') + 1) role "
+        "FROM user_prefs WHERE instr(key, '|') > 1 ORDER BY updated DESC LIMIT ?",
+        (limit,),
+    )
 
 
 def kv_get(k: str, default: Any = None) -> Any:

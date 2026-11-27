@@ -106,7 +106,8 @@ def _counterparties(ctx: dict, a: dict) -> dict:
     top = side["top"][: a.get("top", 5)]
     lines = [f"{t['uid']}: {t['sector_label']}, {t['okved'] or 'нет в базе'}, {bn(t['amount'])} ({t['share']:.0%})"
              + (", клиент банка" if t["client"] else "") + (", есть ключевой собственник" if t["key_owner"] else "") for t in top]
-    text = (f"Всего {side['n']} контрагентов, оборот {bn(side['total'])}, внутри группы {bn(side['intra_group'])}. Крупнейший {side['top_share']:.0%}, HHI {side['hhi']}. "
+    text = (f"Контрагенты компании {ctx['uid']} (отдельные юрлица, не путать с самой компанией). "
+            f"Всего {side['n']} контрагентов, оборот {bn(side['total'])}, внутри группы {bn(side['intra_group'])}. Крупнейший {side['top_share']:.0%}, HHI {side['hhi']}. "
             f"Отрасли: " + ", ".join(f"{s['label']} {s['share']:.0%}" for s in side["sectors"][:4]) +
             f". С ключевым собственником {side['key_owner_share']:.0%}, клиенты банка {side['bank_clients_share']:.0%}. Крупнейшие: " + "; ".join(lines))
     did = f"data:{a['side']}"
@@ -116,17 +117,18 @@ def _counterparties(ctx: dict, a: dict) -> dict:
 def _group(ctx: dict, a: dict) -> dict:
     g = profile.build(ctx["uid"])["group"]
     if g["n"] <= 1:
-        text = "Компания не входит в группу: в данных одна компания."
+        text = f"Компания {ctx['uid']} не входит в группу: в данных одна компания."
     else:
-        text = (f"Группа {g['id']}: {g['n']} компаний, суммарная выручка {bn(g['revenue'])}. Отрасли: " +
-                ", ".join(f"{s['label']} {s['share']:.0%}" for s in g["sectors"]) + ". Крупнейшие: " +
-                "; ".join(f"{m['uid']} {m['sector_label']} {bn(m['revenue'])}" for m in g["members"][:6]))
+        text = (f"Группа {g['id']} (включает компанию {ctx['uid']} и другие юрлица, не смешивать их показатели): "
+                f"{g['n']} компаний, суммарная выручка группы {bn(g['revenue'])}. Отрасли: " +
+                ", ".join(f"{s['label']} {s['share']:.0%}" for s in g["sectors"]) + ". Крупнейшие участники: " +
+                "; ".join(f"{m['uid']}{' (клиент)' if m.get('self') else ''} {m['sector_label']} {bn(m['revenue'])}" for m in g["members"][:6]))
     return {"summary": text, "items": [{"id": "data:group", "kind": "data", "title": "Группа компаний", "text": text}]}
 
 
 def _links(ctx: dict, a: dict) -> dict:
     lk = profile.build(ctx["uid"])["links"]
-    text = (f"Связанных физлиц: {lk['persons']}. Компании через общих физлиц: " +
+    text = (f"Связанных физлиц у компании {ctx['uid']}: {lk['persons']}. Другие компании через общих физлиц (отдельные юрлица): " +
             ("; ".join(f"{c['uid']} ({SECTORS.get(c['sector'], {}).get('label', '—')}, {bn(c['revenue'])}, общих лиц {c['shared']})" for c in lk["companies"][:6]) or "нет"))
     return {"summary": text, "items": [{"id": "data:links", "kind": "data", "title": "Связи через физлиц", "text": text}]}
 
@@ -134,7 +136,7 @@ def _links(ctx: dict, a: dict) -> dict:
 def _search_news(ctx: dict, a: dict) -> dict:
     res = search.search_news(a["query"], k=6, days=a.get("days", 14), exclude=ctx.get("exclude_news"), uid=ctx["uid"])
     items = [{"id": r["id"], "kind": "news", "title": r["title"], "text": r["text"][:500], "source": r["source"],
-              "published": r["published"]} for r in res]
+              "url": r.get("url"), "published": r["published"]} for r in res]
     return {"summary": f"Найдено {len(items)} новостей по «{a['query']}»", "items": items}
 
 
@@ -145,7 +147,7 @@ def _get_news(ctx: dict, a: dict) -> dict:
         raise ToolError("новость не найдена")
     items = [{"id": f"news:{n['id']}", "kind": "news", "title": n["title"], "text": (n["text"] or "")[:2500], "source": n["source"],
               "published": n["published"], "url": n["url"]}]
-    for c in n["cluster"][:4]:
+    for c in n["cluster"][:6]:
         full = db.q1("SELECT text FROM news WHERE id=? AND COALESCE(user_uid,'')=?", (c["id"], n["user_uid"] or ""))
         if not full:
             continue

@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Literal
 
@@ -20,16 +18,17 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import agent, config, db, gate, kb, llm, metrics, news, profile, ranking, sandbox, search, security, team
+from . import agent, config, db, feedback as feedback_svc, gate, ingest, kb, llm, metrics, news, profile, ranking, sandbox, search, security, team
 from .taxonomy import FACTORS, ROLES, SECTORS, TOPICS
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    _startup()
+    ingest.startup()
     yield
 
 
-app = FastAPI(lifespan=lifespan, title="Альфи · новостная аналитика для крупного бизнеса", version="1.3.0",
+app = FastAPI(lifespan=lifespan, title="Альфи · новостная аналитика для крупного бизнеса", version="1.4.0",
               description="Персональные бизнес-инсайты из новостей и аналитики Альфа-Банка. Прототип для Альфа Хак.")
 if config.CORS_ORIGINS:
     app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_credentials=True,
@@ -60,50 +59,6 @@ def gate_css():
 @app.get("/gate-cat.png", include_in_schema=False)
 def gate_cat():
     return FileResponse(config.WEB_DIR / "gate-cat.png", media_type="image/png")
-
-
-# ---------- Жизненный цикл ----------
-def _stale() -> bool:
-    last = db.q1("SELECT finished FROM ingest_log ORDER BY id DESC LIMIT 1")
-    if not last:
-        return True
-    age = (datetime.now(timezone.utc) - datetime.fromisoformat(last["finished"])).total_seconds() / 60
-    return age >= max(5, config.INGEST_INTERVAL_MIN)
-
-
-def _scheduler() -> None:
-    """Новости собираются сами: при старте, если данные устарели, и дальше по расписанию."""
-    if config.INGEST_ON_START or _stale():
-        try:
-            news.ingest()
-        except Exception:  # noqa: BLE001 сбор повторится в следующий раз
-            pass
-    while config.INGEST_INTERVAL_MIN > 0:
-        time.sleep(60)
-        if _stale() and not news.state()["running"]:
-            try:
-                news.ingest()
-            except Exception:  # noqa: BLE001
-                pass
-
-
-def _warm_feeds(rows: list[dict]) -> None:
-    for row in rows:
-        try:
-            ranking.feed(row["uid"], row["role"], triage_on=False)
-        except KeyError:
-            continue  # компания могла исчезнуть после нового импорта
-
-
-def _startup() -> None:
-    db.init()
-    kb.ensure_loaded()
-    recent = db.q("SELECT substr(key, 1, instr(key, '|') - 1) uid, substr(key, instr(key, '|') + 1) role "
-                  "FROM user_prefs ORDER BY updated DESC LIMIT 8")
-    if recent:
-        threading.Thread(target=_warm_feeds, args=(recent,), daemon=True).start()
-    if config.INGEST_ON_START or config.INGEST_INTERVAL_MIN > 0:
-        threading.Thread(target=_scheduler, daemon=True).start()
 
 
 # ---------- Сессия ----------
@@ -166,10 +121,9 @@ def sse(run_id: str, after_seq: int = 0) -> StreamingResponse:
 @app.get("/api/health")
 def health(request: Request):
     if request.client and request.client.host in {"127.0.0.1", "::1"} and not request.headers.get("authorization") and not request.headers.get("x-admin-token"):
-        return {"ok": bool(db.q1("SELECT 1 AS ready"))}
+        return {"ok": db.ping()}
     admin(request)
-    return {"ok": True, "news": db.q1("SELECT COUNT(*) n FROM news")["n"], "companies": db.q1("SELECT COUNT(*) n FROM companies")["n"],
-            "kb_chunks": db.q1("SELECT COUNT(*) n FROM kb_chunks")["n"], "llm": bool(config.LLM_API_KEY), "exa": bool(config.EXA_API_KEY)}
+    return {"ok": True, **db.counts(), "llm": bool(config.LLM_API_KEY), "exa": bool(config.EXA_API_KEY)}
 
 
 @app.get("/api/meta")
@@ -182,23 +136,7 @@ def meta():
 
 @app.get("/api/demo/companies", dependencies=[Depends(demo_only)])
 def demo_companies(q: str = "", sector: str = "", featured: bool = True):
-    if featured and not q and not sector:
-        return {"items": profile.featured()}
-    sql = """SELECT c.uid, c.okved, c.okved_name, c.sector, c.revenue, c.region, c.city, c.fts, c.loa, c.group_id
-             FROM companies c LEFT JOIN group_stats g ON g.group_id=c.group_id
-             WHERE (c.revenue >= 15e9 OR g.revenue >= 15e9) AND c.uid NOT LIKE 'U_TEST_%'"""
-    args: list = []
-    if q:
-        sql += " AND (c.uid = ? OR c.okved_name LIKE ? OR c.region LIKE ? OR c.okved LIKE ?)"
-        like = f"%{q.strip()[:60]}%"
-        args += [q.strip().upper(), like, like, f"{q.strip()[:10]}%"]
-    if sector:
-        sql += " AND c.sector = ?"
-        args.append(sector)
-    rows = db.q(sql + " ORDER BY c.revenue DESC LIMIT 40", args)
-    return {"items": [{"uid": r["uid"], "title": profile.company_title(r), "sector": r["sector"], "sector_label": SECTORS[r["sector"]]["label"],
-                       "revenue": r["revenue"], "revenue_label": profile.bn(r["revenue"]), "region": r["region"], "fts": bool(r["fts"]),
-                       "credit": bool(r["loa"])} for r in rows]}
+    return {"items": profile.search_companies(q=q, sector=sector, featured_only=featured)}
 
 
 @app.get("/api/demo/templates", dependencies=[Depends(demo_only)])
@@ -240,7 +178,7 @@ def create_session(body: SessionIn, request: Request, response: Response):
     if body.role not in ROLES:
         raise HTTPException(400, "Неизвестная роль")
     uid = body.uid.strip().upper()
-    if not db.q1("SELECT 1 FROM companies WHERE uid=?", (uid,)):
+    if not profile.company_exists(uid):
         raise HTTPException(404, "Компания не найдена")
     team.ensure_ai(uid, body.role)  # ИИ подбирает команду в фоне, пока грузится лента
     token = security.issue(uid, body.role)
@@ -333,7 +271,7 @@ def reset_team(s: Session = Depends(session)):
 def feed_status(s: Session = Depends(session)):
     return {"triage_running": ranking.triage_running(s.uid, s.role), "team_selecting": team.selecting(s.uid, s.role),
             "ingest_running": news.ingest_running(), "ingest_interval_min": config.INGEST_INTERVAL_MIN,
-            "ingest": db.q1("SELECT finished,new,sources FROM ingest_log ORDER BY id DESC LIMIT 1")}
+            "ingest": db.last_ingest_summary()}
 
 
 @lru_cache(maxsize=32)
@@ -346,7 +284,7 @@ def get_feed(request: Request, q: str = Query("", max_length=200), offset: int =
              limit: int | None = Query(None, ge=1, le=200), s: Session = Depends(session)):
     team.ensure_ai(s.uid, s.role)
     status = feed_status(s)
-    revision = (str(config.DB_PATH), db.q1("SELECT feed FROM content_revision")["feed"], int(time.time() // 60),
+    revision = (str(config.DB_PATH), db.feed_revision(), int(time.time() // 60),
                 status["triage_running"], status["team_selecting"])
     query = q.strip().casefold()
     browse = bool(query or offset or limit is not None)
@@ -392,24 +330,10 @@ class SubmitIn(BaseModel):
 @app.post("/api/news/submit")
 def submit_news(body: SubmitIn, s: Session = Depends(session)):
     limit(s, "submit")
-    if body.url and not body.url.startswith(("http://", "https://")):
-        raise HTTPException(400, "Ссылка должна начинаться с http(s)://")
-    text = body.text
-    if body.url and len(text) < 200:
-        try:
-            from . import exa
-            got = exa.contents([body.url], chars=6000)
-            if got and got[0]["text"]:
-                text = got[0]["text"]
-        except Exception:  # noqa: BLE001 работаем с тем, что ввёл пользователь
-            pass
-    if security.injection_score(body.title + " " + text):
-        security.log_event(s.uid, "prompt_injection_submit", body.title[:200])
-    clean, _ = security.mask_pii(text)
-    nid = news.submit(body.title, clean, body.url, s.uid)
-    sc = ranking.reasons_for(s.uid, s.role, nid)
-    return {"id": nid, "score": round((sc or {}).get("score", 0), 3), "reasons": (sc or {}).get("reasons", []),
-            "relevant": bool(sc and sc["score"] >= config.FEED_THRESHOLD)}
+    try:
+        return ingest.submit_user_news(s.uid, s.role, body.title, body.text, body.url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 # ---------- Разбор ----------
@@ -431,6 +355,26 @@ def stream_insight(news_id: str, force: bool = False, s: Session = Depends(sessi
     return sse(agent.start_insight(s.uid, s.role, news_id, force=force, on_new=on_new).id)
 
 
+class ClarifyIn(BaseModel):
+    text: str = Field(min_length=5, max_length=600)
+
+
+@app.get("/api/insight/{news_id}/clarifications")
+def get_clarifications(news_id: str, s: Session = Depends(session)):
+    require_news(news_id, s)
+    return {"items": agent.list_clarifications(s.uid, s.role, news_id)}
+
+
+@app.post("/api/insight/{news_id}/clarify")
+def add_clarification(news_id: str, body: ClarifyIn, s: Session = Depends(session)):
+    require_news(news_id, s)
+    limit(s, "chat")
+    try:
+        return agent.add_clarification(s.uid, s.role, news_id, body.text, source="user")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     news_id: str | None = None
@@ -449,13 +393,17 @@ def chat(body: ChatIn, s: Session = Depends(session)):
 
 
 @app.get("/api/chat")
-def chat_history(helper: str = "", s: Session = Depends(session)):
-    return {"items": agent.chat_history(s.uid, s.role, helper or None)}
+def chat_history(helper: str = "", news_id: str = "", s: Session = Depends(session)):
+    if news_id:
+        require_news(news_id, s)
+    return {"items": agent.chat_history(s.uid, s.role, helper or None, news_id or None)}
 
 
 @app.delete("/api/chat")
-def chat_clear(helper: str = "", s: Session = Depends(session)):
-    agent.chat_clear(s.uid, s.role, helper or None)
+def chat_clear(helper: str = "", news_id: str = "", s: Session = Depends(session)):
+    if news_id:
+        require_news(news_id, s)
+    agent.chat_clear(s.uid, s.role, helper or None, news_id or None)
     return {"ok": True}
 
 
@@ -493,11 +441,9 @@ class FeedbackIn(BaseModel):
 @app.post("/api/feedback")
 def feedback(body: FeedbackIn, s: Session = Depends(session)):
     require_news(body.news_id, s)
-    if body.kind in {"useful", "not_relevant", "neutral", "undo", "undo_useful"}:
+    if body.kind in feedback_svc.STATE_KINDS:
         return {"ok": True, **ranking.set_feedback(s.uid, s.role, body.news_id, body.kind)}
-    db.ex("INSERT INTO feedback(ts,uid,role,news_id,kind,value,comment) VALUES(?,?,?,?,?,?,?)",
-          (datetime.now(timezone.utc).isoformat(), s.uid, s.role, body.news_id, body.kind, body.value, security.mask_pii(body.comment)[0]))
-    return {"ok": True, "weights": None}
+    return feedback_svc.record(s.uid, s.role, body.news_id, body.kind, body.value, body.comment)
 
 
 # ---------- База знаний ----------
@@ -507,7 +453,7 @@ def kb_docs(s: Session = Depends(session)):
 
 
 def require_doc(doc_id: str, s: Session):
-    doc = db.q1("SELECT * FROM kb_docs WHERE id=?", (doc_id,))
+    doc = kb.doc_row(doc_id)
     if not security.can_access_kb_doc(s.model_dump(), doc):
         raise HTTPException(404, "Документ не найден")
     return doc
@@ -562,10 +508,7 @@ def ingest_state():
 def ingest_run():
     if not security.rate_ok("service-admin", "ingest"):
         raise HTTPException(429, "Слишком много запросов")
-    if news.state()["running"]:
-        return {"status": "busy"}
-    threading.Thread(target=news.ingest, daemon=True).start()
-    return {"status": "started"}
+    return ingest.trigger_background_ingest()
 
 
 # Последний маршрут обслуживает фронтенд.

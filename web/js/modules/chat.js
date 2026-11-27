@@ -107,16 +107,17 @@ const TOOL_T = {
   search_bank_analytics: 'аналитика Альфа-Банка', get_bank_forecasts: 'прогнозы банка', web_search: 'поиск в интернете', fetch_page: 'чтение страницы'
 };
 const toolT = (t) => TOOL_T[t] || t;
-const REF_RX = /\[((?:news|bank|web|feat|data):[^\]\s]+)\]/g;
+const REF_RX = /\[((?:news|bank|web|feat|data|user):[^\]\s]+)\]/g;
 function refLabel(id, r) {
   const [kind] = id.split(':');
   if (kind === 'bank') return `Альфа-Банк${r && r.page ? `, стр. ${r.page}` : ''}`;
   if (kind === 'news') return (r && (r.source || (r.title && cut(r.title, 26)))) || 'новость';
   if (kind === 'web') return r && r.url ? (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch (_) { return 'интернет'; } })() : 'интернет';
+  if (kind === 'user') return 'уточнение пользователя';
   if (kind === 'feat') return (r && r.title) || 'данные компании';
   return (r && r.title) || 'данные банка';
 }
-const KIND_T = { news: 'Новость', bank: 'Аналитика Альфа-Банка', web: 'Интернет', feat: 'Данные о компании', data: 'Данные банка о компании' };
+const KIND_T = { news: 'Новость', bank: 'Аналитика Альфа-Банка', web: 'Интернет', feat: 'Данные о компании', data: 'Данные банка о компании', user: 'Уточнение пользователя' };
 function srcList(refs, ids, scope) {
   return `<ol class="c-srcs">${ids.map((id, i) => {
     const r = refs[id] || {}, kind = id.split(':')[0], url = safeUrl(r.url);
@@ -140,8 +141,8 @@ function answerHTML(text, refs) {
   };
   const inline = (s) => esc(s)
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/(?:\s*\[(?:news|bank|web|feat|data):[^\]\s]+\])+/g, (m) => {
-      const ids = [...m.matchAll(/\[((?:news|bank|web|feat|data):[^\]\s]+)\]/g)].map((x) => x[1].replace(/&amp;/g, '&'));
+    .replace(/(?:\s*\[(?:news|bank|web|feat|data|user):[^\]\s]+\])+/g, (m) => {
+      const ids = [...m.matchAll(/\[((?:news|bank|web|feat|data|user):[^\]\s]+)\]/g)].map((x) => x[1].replace(/&amp;/g, '&'));
       const g = group(ids); return g ? ' ' + g : '';
     })
     .replace(/^(Альфа-Банк|Позиция банка):/, '<b class="c-bankline">$1:</b>')
@@ -191,14 +192,31 @@ function answerHTML(text, refs) {
   flush();
   return out.join('') + (order.length ? `<details class="c-srcbox"><summary>Источники · ${order.length}</summary>${srcList(refs, order, scope)}</details>` : '');
 }
-/* У каждого помощника своя переписка: своя панель в журнале и своя история на сервере.
-   Переключили помощника — показали его панель, ответ, который ещё идёт у другого, дописывается в фоне. */
+/* У каждого помощника и каждого события своя изолированная переписка (helper + news_id).
+   Переключили помощника или событие — показали его панель, ответ, который ещё идёт у другого, дописывается в фоне. */
 const panes = new Map(), runs = new Map();
-const chatId = (a) => (a && !a.all ? a.id : 'alfi');
-function pane(a) {
-  const id = chatId(a);
+const helperKey = (a) => (a && !a.all ? a.id : 'alfi');
+const chatId = (a, ctxId = S.chatCtx) => helperKey(a) + (ctxId ? '::' + ctxId : '');
+function chatQuery(a, ctxId = S.chatCtx) {
+  const qs = new URLSearchParams();
+  if (a && !a.all) qs.set('helper', a.id);
+  if (ctxId) qs.set('news_id', ctxId);
+  const s = qs.toString();
+  return '/api/chat' + (s ? '?' + s : '');
+}
+function pane(a, ctxId = S.chatCtx) {
+  const id = chatId(a, ctxId);
   let p = panes.get(id);
-  if (!p) { p = document.createElement('div'); p.className = 'c-pane'; p.dataset.pane = id; p.hidden = true; log.appendChild(p); panes.set(id, p); }
+  if (!p) {
+    p = document.createElement('div');
+    p.className = 'c-pane';
+    p.dataset.pane = id;
+    p.dataset.helper = helperKey(a);
+    p.dataset.news = ctxId || '';
+    p.hidden = true;
+    log.appendChild(p);
+    panes.set(id, p);
+  }
   return p;
 }
 const scrollLog = () => { log.scrollTop = log.scrollHeight; };
@@ -213,36 +231,40 @@ const me = (q, p = pane(chatAgent)) => p.insertAdjacentHTML('beforeend', `<div c
 const agentStatus = (a) => (a.all ? 'По данным компании и аналитике банка' : a.watch);
 function paintSugg() {
   const ctx = S.chatCtx ? byId(S.chatCtx) : null, a = chatAgent;
-  const list = ctx ? ['Что это меняет для нас?', 'Что говорит Альфа-Банк?', 'Какие риски для долга и валюты?', 'Что сделать в первую очередь?']
+  const list = ctx ? ['Что это меняет для нас?', 'Что говорит Альфа-Банк?', 'Какие условия нужны для роста?', 'Что сделать в первую очередь?']
     : a.all ? ['Что важно на этой неделе?', 'Как ставка ЦБ влияет на наши кредиты?', 'Какие риски у наших контрагентов?', 'Что прогнозирует Альфа-Банк по курсу?']
     : [`Что нового по теме «${a.name}»?`, `Почему «${a.name}» в нашей команде?`, 'Какой главный риск сейчас?', 'Что говорит аналитика банка?'];
-  const used = !!pane(a).querySelector('.a-msg--me');
+  const used = !!pane(a, S.chatCtx).querySelector('.a-msg--me');
   $('#aChatSugg').hidden = used && !ctx;
   $('#aChatSugg').innerHTML = list.slice(0, 3).map((s) => `<button type="button" data-q="${esc(s)}">${esc(s)}</button>`).join('');
   const c = $('#aChatCtx');
   c.hidden = !ctx;
-  if (ctx) c.innerHTML = `<span>Обсуждаем: <b>${esc(cut(ctx.headline || ctx.title, 80))}</b></span><button type="button" data-ctx-clear aria-label="Убрать новость из контекста"><svg class="ic ic--sm"><use href="#i-close"/></svg></button>`;
+  if (ctx) c.innerHTML = `<span>Обсуждаем событие: <b>${esc(cut(ctx.headline || ctx.title, 76))}</b></span><button type="button" data-ctx-clear aria-label="Перейти в общий чат без события"><svg class="ic ic--sm"><use href="#i-close"/></svg></button>`;
 }
-async function loadHistory(a) {
+async function loadHistory(a, ctxId = S.chatCtx) {
   const gen = S.sessionGen;
-  const p = pane(a);
+  const p = pane(a, ctxId);
   if (p.dataset.loaded) return;
   p.dataset.loaded = '1';
   try {
-    const h = await API.get('/api/chat' + (a.all ? '' : '?helper=' + encodeURIComponent(a.id)));
+    const h = await API.get(chatQuery(a, ctxId));
+    if (gen !== S.sessionGen) return;
     for (const m of h.items || []) {
       if (m.role === 'user') me(String(m.content || ''), p);
-      else bot(answerHTML(String(m.content || '').replace(REF_RX, ''), {}), p);
+      else bot(answerHTML(String(m.content || ''), m.refs || {}), p);
     }
-    if ((h.items || []).length) p.insertAdjacentHTML('afterbegin', '<p class="c-sep">Прошлая переписка</p>');
+    if ((h.items || []).length) p.insertAdjacentHTML('afterbegin', '<p class="c-sep">Прошлая переписка по этому контексту</p>');
   } catch (_) {}
   if (gen !== S.sessionGen) return;
   if (!p.children.length) {
-    bot(a.all
-      ? `<p>Альфи отвечает с учётом профиля «${esc(S.me ? S.me.company.title : 'компании')}»: отрасль, ВЭД, продукты банка, контрагенты и группа. В ответах есть ссылки на новости и аналитику Альфа-Банка.</p>`
-      : `<p><b>${esc(a.name)}</b> ${a.task ? `отвечает за тему: ${esc(a.task)}.` : `следит за темой: ${esc(a.watch)}.`}</p>${a.why_ai || a.why ? `<p class="c-meta">В команде, потому что ${esc((a.why_ai || a.why).replace(/^./, (c) => c.toLowerCase()))}</p>` : ''}`, p);
+    const ctx = ctxId ? byId(ctxId) : null;
+    bot(ctx
+      ? `<p>Диалог привязан к событию «${esc(cut(ctx.headline || ctx.title, 90))}». Можно задавать вопросы или уточнить факты о вашей компании — Альфи учтёт их при разборе.</p>`
+      : a.all
+        ? `<p>Альфи отвечает с учётом профиля «${esc(S.me ? S.me.company.title : 'компании')}»: отрасль, ВЭД, продукты банка, контрагенты и группа. В ответах есть ссылки на новости и аналитику Альфа-Банка.</p>`
+        : `<p><b>${esc(a.name)}</b> ${a.task ? `отвечает за тему: ${esc(a.task)}.` : `следит за темой: ${esc(a.watch)}.`}</p>${a.why_ai || a.why ? `<p class="c-meta">В команде, потому что ${esc((a.why_ai || a.why).replace(/^./, (c) => c.toLowerCase()))}</p>` : ''}`, p);
   }
-  if (p === pane(chatAgent)) scrollLog();
+  if (p === pane(chatAgent, S.chatCtx)) scrollLog();
 }
 function openChat(person, ctxId) {
   if (!S.me) { document.dispatchEvent(new Event('alfi:login')); return; }
@@ -254,14 +276,14 @@ function openChat(person, ctxId) {
   chatSt.textContent = agentStatus(chatAgent);
   mount(chatAva, chatAgent.kind);
   mount($('#aFabBuddy'), chatAgent.kind, 160);
-  const cur = pane(chatAgent);
+  const cur = pane(chatAgent, S.chatCtx);
   panes.forEach((p) => { p.hidden = p !== cur; });
   if (!reduce) cur.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
   paintSugg();
   const changing = chatAgent.id !== S.cat;
   if (opening) openShell(!changing);
   if (changing) showCat(chatAgent, opening);
-  loadHistory(chatAgent);
+  loadHistory(chatAgent, S.chatCtx);
   scrollLog();
   const gen = S.sessionGen;
   setTimeout(() => {
@@ -270,23 +292,26 @@ function openChat(person, ctxId) {
 }
 function say(q) {
   if (!S.me) return;
-  const a = chatAgent, id = chatId(a);
+  const a = chatAgent, ctxId = S.chatCtx || null, id = chatId(a, ctxId);
   if (runs.get(id)) { toast(`${a.name} ещё отвечает на прошлый вопрос`); return; }
   openChat();
-  const p = pane(a);
+  const p = pane(a, ctxId);
   me(q, p);
-  if (!S.chatCtx) $('#aChatSugg').hidden = true;
+  if (!ctxId) $('#aChatSugg').hidden = true;
   const t = bot('<span class="a-typing"><i></i><i></i><i></i></span><p class="c-tools"></p>', p);
   const b = t.querySelector('.a-msg__b'), tl = () => b.querySelector('.c-tools');
   const follow = () => { if (!p.hidden) scrollLog(); };
   follow();
   const used = [];
-  const run = API.stream('/api/chat', { method: 'POST', body: { message: q, news_id: S.chatCtx || null, helper: p.dataset.pane === 'alfi' ? null : p.dataset.pane }, onEvent: (type, ev) => {
+  const run = API.stream('/api/chat', { method: 'POST', body: { message: q, news_id: ctxId, helper: p.dataset.helper === 'alfi' ? null : p.dataset.helper }, onEvent: (type, ev) => {
     const d = ev.data || {};
     if (type === 'tool' && tl()) { used.push(toolT(d.tool)); tl().textContent = 'Смотрим: ' + used.join(', '); }
     else if (type === 'guard' && tl()) tl().textContent = ev.title + (d.text ? `. ${d.text}` : '');
     else if (type === 'final') {
-      b.innerHTML = answerHTML(d.text, d.refs) + '';
+      const clarNote = d.clarification_saved && ctxId
+        ? `<p class="c-clar"><button type="button" class="btn btn--secondary" data-ins-refresh="${esc(ctxId)}">Обновить разбор с учётом уточнения</button></p>`
+        : '';
+      b.innerHTML = answerHTML(d.text, d.refs) + clarNote;
       if (p.hidden) toast(`Ответ готов: ${a.name}`);
     } else if (type === 'error') b.innerHTML = `<p class="c-err">Не получилось ответить: ${esc(d.message || ev.title)}. Попробуйте ещё раз.</p>`;
     follow();
@@ -296,18 +321,31 @@ function say(q) {
 }
 chat.addEventListener('click', (e) => {
   if (e.target === chat || e.target.closest('.a-chat__x')) { closeChat(); return; }
-  if (e.target.closest('[data-ctx-clear]')) { S.chatCtx = null; paintSugg(); }
+  if (e.target.closest('[data-ctx-clear]')) {
+    S.chatCtx = null;
+    const cur = pane(chatAgent, null);
+    panes.forEach((p) => { p.hidden = p !== cur; });
+    paintSugg();
+    loadHistory(chatAgent, null);
+    return;
+  }
+  const refBtn = e.target.closest('[data-ins-refresh]');
+  if (refBtn) {
+    const nid = refBtn.dataset.insRefresh;
+    closeChat(true);
+    document.dispatchEvent(new CustomEvent('alfi:open-insight', { detail: { id: nid, force: true } }));
+  }
 });
 $('#aChatClear').addEventListener('click', async (e) => {
-  const btn = e.currentTarget, a = chatAgent, p = pane(a);
+  const btn = e.currentTarget, a = chatAgent, ctxId = S.chatCtx || null, p = pane(a, ctxId);
   if (!btn.dataset.armed) { btn.dataset.armed = '1'; toast('Нажмите ещё раз, чтобы удалить переписку'); setTimeout(() => { delete btn.dataset.armed; }, 3000); return; }
   delete btn.dataset.armed;
-  try { await API.del('/api/chat' + (a.all ? '' : '?helper=' + encodeURIComponent(a.id))); } catch (error) { if (error.name !== 'AbortError') toast(error.message); return; }
-  p.innerHTML = ''; delete p.dataset.loaded; loadHistory(a);
+  try { await API.del(chatQuery(a, ctxId)); } catch (error) { if (error.name !== 'AbortError') toast(error.message); return; }
+  p.innerHTML = ''; delete p.dataset.loaded; loadHistory(a, ctxId);
   toast('Переписка удалена');
 });
 $('#aChatForm').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#aChatInput').value.trim(); if (v) { say(v); $('#aChatInput').value = ''; } });
-$('#aFab').addEventListener('click', () => openChat(agentOf(S.cat)));
+$('#aFab').addEventListener('click', () => openChat(agentOf(S.cat), null));
 new IntersectionObserver(([e]) => { $('#aFab').hidden = e.isIntersecting; }, { threshold: 0.15 }).observe(stageEl);
 /* Плавающий Альфи не ложится на кнопки карточек. Листают вниз: уезжает. Остановились или листают вверх: возвращается,
    а если под ним оказалась кнопка («Прочитано», «Не про нас»), приподнимается над ней или прячется */

@@ -1060,6 +1060,28 @@ a.b-trust__i .ic { width: 13px; height: 13px; color: var(--muted); }
 .a-msg__b .c-block > p:not(.c-kick) { text-wrap: pretty; }
 .a-msg__b .c-take { margin-top: 14px; padding: 12px 14px 13px; border-top: 0; border-radius: 14px; background: var(--bg); }
 .a-chat.is-docked .a-msg__b .c-take { background: #F7F7F8; box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Разделение выводов AI / позиции банка, статус «Требует проверки», условия возможностей и уточнения */
+.b-badge-warn { display: inline-flex; align-items: center; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #FFF4E5; color: #9A5500; font-size: 12px; font-weight: 700; }
+.b-warn { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: #FFF5E8; border: 1px solid #F4CF96; color: #6B3C00; }
+.b-warn__t { margin: 0 0 6px; font-size: 14px; font-weight: 750; color: #8A4A00; }
+.b-warn__x { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.b-warn__l { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; line-height: 1.45; }
+.b-disc { margin-top: 12px; padding: 9px 12px; border-radius: 12px; background: var(--bg); font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.b-disc b { color: var(--text); font-weight: 650; }
+.b-tag-ai { display: inline-flex; align-items: center; margin-left: 8px; padding: 2px 7px; border-radius: 7px; background: var(--bg); font-size: 11.5px; font-weight: 650; color: var(--muted); vertical-align: middle; }
+.b-cond { margin: 6px 0 0; font-size: 13.5px; line-height: 1.45; color: #4A4D53; }
+.b-cond b { color: var(--ink); font-weight: 650; }
+.b-srcextra { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.b-sub-ext { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.b-clar { margin-top: 18px; padding: 16px 18px; border-radius: 18px; background: var(--bg); }
+.b-clar__h { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.b-clar__list { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; color: var(--text); }
+.b-clar__row { display: flex; gap: 8px; align-items: center; }
+.b-clar__row .a-input { flex: 1; min-width: 0; margin: 0; background: #fff; }
+.c-disc { margin: 0; padding: 6px 18px 10px; font-size: 11.5px; line-height: 1.35; color: var(--muted); text-align: center; }
+.c-clar { margin-top: 10px; }
+@media (max-width: 640px) { .b-clar__row { flex-direction: column; align-items: stretch; } }
 .a-msg__b .c-take .c-kick { color: var(--ink); }
 .a-msg__b ol { display: grid; gap: 4px; padding-left: 20px; }
 .a-msg__b ul + p, .a-msg__b ol + p, .a-msg__b p + ol { margin-top: 10px; }

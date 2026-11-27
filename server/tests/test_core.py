@@ -70,7 +70,7 @@ def test_gate_and_company_session(client, monkeypatch, prefix):
     login = client.post(prefix + "/api/gate", data={"password": "пароль"})
     assert login.headers["location"] == prefix + "/"
     assert "alfi_gate" in login.cookies
-    assert 'src="js/alfi.js?v=1.3.0"' in client.get(prefix + "/").text
+    assert 'src="js/alfi.js?v=1.4.0"' in client.get(prefix + "/").text
     assert client.get(prefix + "/js/modules/chat.js").status_code == 200
     assert client.get(prefix + "/api/me").status_code == 401
     session = client.post(prefix + "/api/session", json={"uid": "AAA", "role": "cfo"})

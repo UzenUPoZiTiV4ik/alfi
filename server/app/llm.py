@@ -151,6 +151,7 @@ def chat(
     timeout: float | None = None,
     deep: bool = False,
     reasoning: bool | None = None,
+    reasoning_effort: str | None = None,
 ) -> dict:
     """Один вызов модели. Возвращает {content, tool_calls, usage, cost, model, ms}.
 
@@ -162,14 +163,24 @@ def chat(
 
     primary = model or config.MODELS[role]
     chain = [primary] + ([config.MODELS["fallback"]] if primary != config.MODELS["fallback"] and role != "vision" else [])
+    use_reasoning = config.reasoning_enabled(purpose, reasoning)
+    effort = config.reasoning_effort_for(purpose, reasoning_effort) if use_reasoning else ""
+    headroom = 768 if effort == "low" else 2048
+    eff_max_tokens = min(max_tokens + headroom, 8192) if use_reasoning and max_tokens < 6000 else max_tokens
     last_err = ""
     for mi, m in enumerate(chain):
         if m not in config.ALLOWED_MODELS:
             raise LLMError(f"Модель {m} не из списка кейса")
+        # По замерам Alfi-FaithBench у qwen3.6-35b reasoning/low ломает JSON (28%): на запасной модели всегда выключаем
+        m_reasoning = False if (mi > 0 and m == "qwen/qwen3.6-35b-a3b") else use_reasoning
+        m_effort = effort if m_reasoning else ""
         body: dict[str, Any] = {
-            "model": m, "messages": messages, "max_tokens": max_tokens, "temperature": temperature,
-            "reasoning": {"enabled": config.LLM_REASONING if reasoning is None else reasoning},
+            "model": m, "messages": messages, "max_tokens": eff_max_tokens, "temperature": temperature,
         }
+        if m_reasoning and m_effort:
+            body["reasoning_effort"] = m_effort
+        else:
+            body["reasoning"] = {"enabled": m_reasoning}
         if json_mode:
             body["response_format"] = {"type": "json_object"}
         if tools:
@@ -205,7 +216,7 @@ def chat(
                         continue
                     cost = _log(claim, purpose, m, run_id, usage, ms, True)
                     return {"content": content, "tool_calls": tcs, "usage": usage, "cost": cost, "model": m, "ms": ms,
-                            "fallback": mi > 0}
+                            "fallback": mi > 0, "reasoning": use_reasoning}
                 except (httpx.TimeoutException, httpx.TransportError) as e:
                     ms = int((time.time() - t0) * 1000)
                     last_err = f"{type(e).__name__}: {e}"

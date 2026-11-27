@@ -44,12 +44,32 @@ DB_PATH = Path(env("DB_PATH", str(DATA_DIR / "alfi.db")))
 WEB_DIR = Path(env("WEB_DIR", str(SERVER_DIR.parent / "web")))
 
 # ---------- LLM-шлюз (только модели из списка кейса) ----------
-LLM_BASE_URL = env("LLM_BASE_URL", "https://api.alfahack-gateway26.ru/v1").rstrip("/")
+LLM_BASE_URL = env("LLM_BASE_URL", "https://alfahack-gateway26.ru/v1").rstrip("/")
 LLM_API_KEY = env("LLM_API_KEY")
-LLM_REASONING = flag("LLM_REASONING", False)
+# Режим мышления: "off"/"false" — выкл везде, "selective" — только на выбранных шагах, "on"/"true" — везде
+LLM_REASONING_MODE = env("LLM_REASONING", "false").strip().lower()
+LLM_REASONING = LLM_REASONING_MODE in {"1", "true", "yes", "on"}
+LLM_REASONING_PURPOSES = {p.strip() for p in env("LLM_REASONING_PURPOSES", "synth,repair").split(",") if p.strip()}
+# Уровень усилия рассуждений для reasoning-шагов: "" (по умолчанию шлюза), "low", "medium", "high"
+LLM_REASONING_EFFORT = env("LLM_REASONING_EFFORT", "").strip().lower()
 LLM_TIMEOUT = float(env("LLM_TIMEOUT", "90"))
 # Демо-разбор по шаблону: "1" — всегда, "auto" — когда шлюз LLM недоступен, "0" — никогда
 INSIGHT_DEMO = env("INSIGHT_DEMO", "auto").lower()
+
+
+def reasoning_enabled(purpose: str, override: bool | None = None) -> bool:
+    if override is not None:
+        return bool(override)
+    if LLM_REASONING:
+        return True
+    if LLM_REASONING_MODE == "selective":
+        return purpose in LLM_REASONING_PURPOSES
+    return False
+
+
+def reasoning_effort_for(purpose: str, override: str | None = None) -> str:
+    eff = (override if override is not None else LLM_REASONING_EFFORT).strip().lower()
+    return eff if eff in {"low", "medium", "high"} else ""
 
 ALLOWED_MODELS = {
     "deepseek/deepseek-v4.1-flash",

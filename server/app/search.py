@@ -24,14 +24,14 @@ def invalidate() -> None:
 
 def generation() -> tuple:
     with _lock:
-        return (_generation, db.q1("SELECT kb FROM content_revision")["kb"])
+        return (_generation, db.kb_revision())
 
 
 def _kb_index() -> dict:
     global _kb
     kb.ensure_loaded()
     with _lock:
-        revision = db.q1("SELECT kb FROM content_revision")["kb"]
+        revision = db.kb_revision()
         if _kb is None or _kb["revision"] != revision:
             rows = db.q("""SELECT c.id, c.doc_id, c.kind, c.page, c.text, c.quote, c.quote_verified, c.factors_json, c.sectors_json,
                                   c.stance, c.horizon, d.title doc_title, d.date doc_date, d.stale, d.meta_json
@@ -57,7 +57,7 @@ def search_news(query: str, k: int = 8, days: int | None = 14, exclude: set[str]
                 uid: str | None = None) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days else ""
     visible, args = db.news_visibility_clause(uid)
-    rows = db.q(f"""SELECT id,title,text,source,published,cluster_id,user_uid FROM news
+    rows = db.q(f"""SELECT id,url,title,text,source,published,cluster_id,user_uid FROM news
                     WHERE {visible} AND COALESCE(published,'') >= ? ORDER BY published DESC""", (*args, since))
     docs = [nlp.stems(row["title"]) * 3 + nlp.stems((row["text"] or "")[:1500]) for row in rows]
     bm = nlp.BM25(docs)
@@ -70,7 +70,7 @@ def search_news(query: str, k: int = 8, days: int | None = 14, exclude: set[str]
         if cluster in seen or r["id"] in excluded or r["cluster_id"] in excluded:
             continue
         seen.add(cluster)
-        out.append({"id": f"news:{r['id']}", "news_id": r["id"], "title": r["title"], "source": r["source"],
+        out.append({"id": f"news:{r['id']}", "news_id": r["id"], "url": r["url"], "title": r["title"], "source": r["source"],
                     "published": r["published"], "text": (r["text"] or "")[:600], "score": round(s, 2)})
         if len(out) >= k:
             break

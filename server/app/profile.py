@@ -9,8 +9,26 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from . import db
+from . import db, nlp
 from .taxonomy import FACTORS, SECTORS, country_list, region_stem, sector_label
+
+_OKVED_GENERIC = {
+    "торговл", "оптов", "розничн", "производств", "деятельност", "проч", "товар", "услуг",
+    "работ", "специализирован", "неспециализирован", "неспециализирова", "преимуществен",
+    "магазин", "средств", "издел", "материал", "област", "сфер", "оказан", "выполнен",
+    "управлен", "общ", "друг", "включен", "группировк", "подобн", "необработа", "кроме", "такж",
+}
+
+
+def okved_stems(okved_name: str | None) -> list[str]:
+    """Предметные стемы узкой специализации из ОКВЭД (например, 'зерн', 'семен', 'напитк')."""
+    out: list[str] = []
+    for st in nlp.stems(okved_name or ""):
+        if len(st) < 4 or st.isdigit() or any(st.startswith(g) for g in _OKVED_GENERIC):
+            continue
+        if st not in out:
+            out.append(st)
+    return out[:6]
 
 # Базовая чувствительность отраслей к факторам (экспертная таблица, 0..1)
 SECTOR_SENS: dict[str, dict[str, float]] = {
@@ -239,12 +257,41 @@ def build(uid: str) -> dict | None:
     ]
     return {
         "uid": uid, "title": company_title(c), "okved": c["okved"], "okved_name": c["okved_name"],
+        "okved_stems": okved_stems(c.get("okved_name")),
         "sector": c["sector"], "sector_label": sector_label(c["sector"]), "revenue": c.get("revenue"), "revenue_label": bn(c.get("revenue")),
         "region": c.get("region"), "city": c.get("city"), "region_stem": region_stem(c.get("region")),
         "countries": countries if (c.get("fts") or 0) > 0 else [], "products": products, "cl_type": c.get("cl_type"),
         "features": feats, "group": grp, "suppliers": sup, "customers": cus, "links": links, "position": pos,
         "sensitivities": sens, "sector_weights": _sector_weights(c, grp, sup, cus),
     }
+
+
+def invalidate_cache() -> None:
+    build.cache_clear()
+
+
+def company_exists(uid: str) -> bool:
+    return bool(db.q1("SELECT 1 FROM companies WHERE uid=?", (uid,)))
+
+
+def search_companies(q: str = "", sector: str = "", featured_only: bool = True) -> list[dict]:
+    if featured_only and not q and not sector:
+        return featured()
+    sql = """SELECT c.uid, c.okved, c.okved_name, c.sector, c.revenue, c.region, c.city, c.fts, c.loa, c.group_id
+             FROM companies c LEFT JOIN group_stats g ON g.group_id=c.group_id
+             WHERE (c.revenue >= 15e9 OR g.revenue >= 15e9) AND c.uid NOT LIKE 'U_TEST_%'"""
+    args: list = []
+    if q:
+        sql += " AND (c.uid = ? OR c.okved_name LIKE ? OR c.region LIKE ? OR c.okved LIKE ?)"
+        like = f"%{q.strip()[:60]}%"
+        args += [q.strip().upper(), like, like, f"{q.strip()[:10]}%"]
+    if sector:
+        sql += " AND c.sector = ?"
+        args.append(sector)
+    rows = db.q(sql + " ORDER BY c.revenue DESC LIMIT 40", args)
+    return [{"uid": r["uid"], "title": company_title(r), "sector": r["sector"], "sector_label": SECTORS[r["sector"]]["label"],
+             "revenue": r["revenue"], "revenue_label": bn(r["revenue"]), "region": r["region"], "fts": bool(r["fts"]),
+             "credit": bool(r["loa"])} for r in rows]
 
 
 def feature_map(p: dict) -> dict[str, dict]:

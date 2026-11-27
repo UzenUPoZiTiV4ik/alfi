@@ -1,12 +1,13 @@
-"""Персональная лента: формула значимости, причины попадания, вид (риск/возможность), тема, триаж, фидбек.
+"""Персональная лента: калиброванная формула значимости, причины попадания, вид (риск/возможность), тема, триаж.
 
-score = base * materiality * recency * trust * cluster * feedback
-base  = 0.55 * sector + 0.75 * factor + geo
+score = base * materiality * event_type * scope * recency * trust * cluster * feedback
+base  = 0.62 * sector + 0.58 * factor + subsector + geo
 Каждая причина хранит id признака компании (feat:*), чтобы интерфейс показывал «почему в ленте».
 """
 from __future__ import annotations
 
 import math
+import re
 import threading
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
@@ -14,9 +15,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from . import config, db, llm, news, profile, search
+from . import config, dates, db, feedback, llm, news, nlp, profile, search
 from .security import wrap_untrusted
-from .taxonomy import AREAS, FACTOR_AREAS, FACTORS, ROLES, SECTORS, SELLER_OF, SOURCE_TRUST, TOPICS, count_hits, sector_label
+from .taxonomy import (
+    AREAS, EVENT_TYPE_WEIGHT, FACTOR_AREAS, FACTORS, MACRO_FACTORS, MARKET_DIGEST_WORDS,
+    MEGA_REGIONS, ROLES, SECTORS, SELLER_OF, SOURCE_TRUST, TOPICS, count_hits, sector_label,
+)
 
 CHANCE_WORDS = ["снижени ставк", "снизил ставк", "снизит ставк", "субсид", "льгот", "господдержк", "поддержк бизнес", "рост спрос",
                 "рекордн урож", "рост экспорт", "отмен пошлин", "снижени пошлин", "упрощени", "снизил пошлин", "открыл рын", "новые рынк",
@@ -24,26 +28,29 @@ CHANCE_WORDS = ["снижени ставк", "снизил ставк", "сни�
 RISK_WORDS = ["повышени ставк", "повысил ставк", "санкц", "запрет", "штраф", "дефолт", "банкрот", "паден", "снижени спрос", "рост налог",
               "повышени налог", "ужесточ", "огранич", "дефицит", "убыт", "подорожа", "рост издерж", "просрочк", "ослаблени рубл", "укреплени рубл"]
 
+# Калиброванная шкала значимости события (1=мелкая заметка .. 5=решение ЦБ/закон/шок отрасли)
+MAT_WEIGHT: dict[int, float] = {1: 0.45, 2: 0.68, 3: 1.00, 4: 1.32, 5: 1.60}
+_YEAR_RX = re.compile(r"\b(20\d{2})\b")
+
 
 def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
 def pkey(uid: str, role: str) -> str:
-    return f"{uid}|{role}"
+    return feedback.pkey(uid, role)
 
 
-# ---------- Фидбек ----------
+# ---------- Фидбек (делегируется в модуль feedback) ----------
 def prefs(uid: str, role: str) -> dict[str, float]:
-    r = db.q1("SELECT weights_json FROM user_prefs WHERE key=?", (pkey(uid, role),))
-    return db.unj(r["weights_json"], {}) if r else {}
+    return feedback.get_weights(uid, role)
 
 
 def set_feedback(uid: str, role: str, news_id: str, kind: str) -> dict:
     scored = reasons_for(uid, role, news_id) or {}
     keys = [f"factor:{scored['main']}"] if scored.get("main") else []
     keys.extend(f"sector:{sector}" for sector in scored.get("sectors", [])[:2])
-    return db.set_feedback(uid, role, news_id, kind, keys)
+    return feedback.apply_state(uid, role, news_id, kind, keys)
 
 
 class DatedItem(BaseModel):
@@ -52,12 +59,7 @@ class DatedItem(BaseModel):
     @field_validator("effective_date", mode="before")
     @classmethod
     def normalize_date(cls, value):
-        if isinstance(value, str):
-            try:
-                return datetime.fromisoformat(value.strip()).date().isoformat()
-            except ValueError:
-                pass
-        return None
+        return dates.normalize_effective_date(value)
 
 
 class TriageArea(BaseModel):
@@ -87,10 +89,13 @@ class ExtractFactor(BaseModel):
 class ExtractItem(DatedItem):
     summary: str = ""
     business: bool | None = None
+    event_type: str = ""
+    scope: str = ""
     sectors: list[str] = Field(default_factory=list)
     factors: list[ExtractFactor] = Field(default_factory=list)
     materiality: int = Field(default=2, ge=1, le=5)
     key_facts: list[str] = Field(default_factory=list)
+    deadline_label: str = ""
 
 
 def validated(model, raw) -> dict:
@@ -114,6 +119,11 @@ def _news_signals(n: dict) -> tuple[dict[str, int], dict[str, int], dict]:
     return secs, facs, ext
 
 
+def _is_retro_title(title: str, ref_year: int) -> bool:
+    years = [int(y) for y in _YEAR_RX.findall(title or "")]
+    return bool(years) and max(years) < ref_year
+
+
 def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
     secs, facs, ext = _news_signals(n)
     if ext and ext.get("business") is False and not n.get("user_uid"):
@@ -134,51 +144,93 @@ def score(n: dict, p: dict, role: str, w: dict[str, float]) -> dict | None:
             reasons.append({"text": f"{'в группе' if src else 'у контрагентов'} есть «{sector_label(best_sec)}»",
                             "feat": "feat:group" if src else "feat:suppliers", "w": round(sector, 2)})
 
+    # Узкая специализация по ОКВЭД: зернотрейдеру события про зерно/пшеницу важнее общих сельхоз-заметок про картофель
+    subsector = 0.0
+    ok_stems = p.get("okved_stems") or []
+    if ok_stems and sector >= 0.4:
+        head_stems = set(nlp.stems(f"{n.get('title', '')} {(ext.get('summary') or '')[:220]}"))
+        if any(any(hs.startswith(os_) or os_.startswith(hs) for hs in head_stems) for os_ in ok_stems):
+            subsector = 0.28
+            reasons.append({"text": f"ваш профиль ОКВЭД: {profile.short_okved(p.get('okved_name'))}", "feat": "feat:okved", "w": 0.28})
+
     contrib: dict[str, float] = {}
     for f, hits in facs.items():
         sens = p["sensitivities"].get(f)
         if not sens:
             continue
-        strength = min(1.0, 0.3 + 0.18 * hits)
+        strength = min(1.0, 0.28 + 0.17 * hits)
         contrib[f] = strength * sens["value"] * boost.get(f, 1.0)
-    factor = 1 - math.exp(-1.3 * sum(contrib.values()))
+    ranked_f = sorted(contrib.values(), reverse=True)
+    # Убывающий вклад факторов: 3 общих слова в биржевой сводке больше не насыщают factor до 0,95
+    w_sum = (ranked_f[0] if len(ranked_f) > 0 else 0.0) + 0.35 * (ranked_f[1] if len(ranked_f) > 1 else 0.0) + 0.15 * (ranked_f[2] if len(ranked_f) > 2 else 0.0)
+    factor = 1 - math.exp(-1.05 * w_sum)
     main = max(contrib, key=contrib.get) if contrib else None
     for f in sorted(contrib, key=contrib.get, reverse=True)[:2]:
         if contrib[f] < 0.08:
             continue
         why = p["sensitivities"][f]["why"]
-        # конкретный признак (кредиты, ВЭД, контрагенты) важнее общего «ваша отрасль», которая уже названа выше
         spec = [x for x in why if x["feat"] != "feat:sector"] or why
         w0 = spec[0] if spec else None
         text = FACTORS[f]["label"] if not w0 or (w0["feat"] == "feat:sector" and best_sec == p["sector"]) else f"{FACTORS[f]['label']}: {w0['text']}"
         reasons.append({"text": text, "feat": w0["feat"] if w0 else "feat:sector", "w": round(contrib[f], 2), "factor": f})
 
+    mat = max(1, min(5, int(ext.get("materiality") or (3 if not ext else 2))))
+    ev_type = (ext.get("event_type") or "").strip().lower()
+    ev_scope = (ext.get("scope") or "").strip().lower()
+    ev_mult = EVENT_TYPE_WEIGHT.get(ev_type, 0.92) if ev_type else 1.0
+
+    # Оценка релевантности масштаба: частные и чужие отраслевые события не должны обгонять макро и свою отрасль
+    scope_mult = 1.0
+    ext_secs = [s for s in (ext.get("sectors") or []) if s in SECTORS]
+    is_macro_event = (
+        (ev_scope == "macro" and not ext_secs)
+        or (not ev_scope and not ext_secs and main in MACRO_FACTORS and (ev_type in ("решение регулятора", "закон") or mat >= 4))
+    )
+    if ev_scope == "lifestyle":
+        scope_mult *= 0.30
+    elif sector < 0.20 and (ext_secs or secs) and not is_macro_event:
+        # Новость про чужую отрасль (например, акциз на напитки для топливщика или ипотека для зернотрейдера)
+        scope_mult *= 0.20 if ev_scope == "company_specific" else 0.25
+    elif sector < 0.20 and not is_macro_event and mat <= 2:
+        scope_mult *= 0.55
+
+    if p["sector"] != "finance" and count_hits(n.get("title", ""), MARKET_DIGEST_WORDS) > 0 and mat <= 4:
+        scope_mult *= 0.52
+
+    ref_now = now()
+    if _is_retro_title(n.get("title", ""), ref_now.year) and ev_type not in ("решение регулятора", "закон") and mat <= 3:
+        scope_mult *= 0.78
+
+    # Гео-бонус: для столичных регионов мягче, и срабатывает только при наличии отраслевой/факторной связи
     geo = 0.0
     if p["region_stem"] and p["region_stem"] in (n["tags"].get("regions") or []):
-        geo += 0.25
-        reasons.append({"text": f"ваш регион: {p['region']}", "feat": "feat:region", "w": 0.25})
+        if sector >= 0.35 or (factor >= 0.42 and scope_mult >= 0.8):
+            reg_w = 0.06 if p["region_stem"] in MEGA_REGIONS else 0.20
+            geo += reg_w
+            reasons.append({"text": f"ваш регион: {p['region']}", "feat": "feat:region", "w": reg_w})
     hit_c = [c for c in p["countries"] if c in (n["tags"].get("countries") or [])]
-    # страна ВЭД важна, только если событие про торговлю, валюту, логистику или вашу отрасль
-    if hit_c and (set(contrib) & {"trade", "fx", "logistics"} or sector >= 0.6):
-        geo += 0.35
-        reasons.append({"text": f"страна вашей ВЭД: {', '.join(c.title() for c in hit_c[:3])}", "feat": "feat:fts", "w": 0.35})
+    if hit_c and scope_mult >= 0.75 and (set(contrib) & {"trade", "fx", "logistics"} or sector >= 0.6):
+        geo += 0.30
+        reasons.append({"text": f"страна вашей ВЭД: {', '.join(c.title() for c in hit_c[:3])}", "feat": "feat:fts", "w": 0.30})
 
-    base = 0.55 * sector + 0.75 * factor + geo
-    mat = int(ext.get("materiality") or 2)
-    materiality = 0.55 + 0.15 * min(5, mat)
-    age_h = max(0.0, (now() - datetime.fromisoformat(n["published"])).total_seconds() / 3600) if n.get("published") else 48
-    recency = 0.5 + 0.5 * math.exp(-age_h / 72)
-    trust = 0.75 + 0.25 * SOURCE_TRUST.get(n["source_id"] or "exa", 0.6)
-    cluster = 1 + min(0.3, 0.1 * (n.get("n_sources", 1) - 1))
+    base = 0.62 * sector + 0.58 * factor + subsector + geo
+    materiality = MAT_WEIGHT.get(mat, 1.0)
+    pub_dt = dates.parse_utc_safe(n.get("published"), ref_now - timedelta(hours=48))
+    age_h = max(0.0, (ref_now - pub_dt).total_seconds() / 3600)
+    recency = 0.55 + 0.45 * math.exp(-age_h / 72)
+    trust = 0.78 + 0.22 * SOURCE_TRUST.get(n["source_id"] or "exa", 0.62)
+    cluster = 1 + min(0.28, 0.09 * (n.get("n_sources", 1) - 1))
     fb = 1.0
     for k in {f"factor:{main}"} | {f"sector:{s}" for s in secs} | {r["feat"] for r in reasons}:
         fb *= w.get(k, 1.0)
     fb = max(0.3, min(1.6, fb))
-    s = base * materiality * recency * trust * cluster * fb
+    s = base * materiality * ev_mult * scope_mult * recency * trust * cluster * fb
     return {"score": s, "main": main, "reasons": reasons, "sectors": sorted(secs, key=secs.get, reverse=True)[:3],
             "factors": sorted(contrib, key=contrib.get, reverse=True)[:3], "materiality": mat,
-            "parts": {"sector": round(sector, 3), "factor": round(factor, 3), "geo": geo, "materiality": round(materiality, 2),
-                      "recency": round(recency, 2), "trust": round(trust, 2), "cluster": round(cluster, 2), "feedback": round(fb, 2)}}
+            "parts": {"sector": round(sector, 3), "subsector": round(subsector, 2), "factor": round(factor, 3),
+                      "geo": round(geo, 2), "materiality": round(materiality, 2), "event_type": round(ev_mult, 2),
+                      "scope": round(scope_mult, 2), "recency": round(recency, 2), "trust": round(trust, 2),
+                      "cluster": round(cluster, 2), "feedback": round(fb, 2)}}
 
 
 def guess_kind(n: dict, main: str | None) -> str:
@@ -238,6 +290,14 @@ def corpus_stats(uid: str | None = None, days: int = 5) -> dict:
     return {"scanned": a["n"], "sources": a["s"], "events": a["e"], "business": b["n"], "days": days}
 
 
+def _relevance_pct(score_val: float, top: float) -> int:
+    if score_val <= 0 or top <= 0:
+        return 0
+    abs_part = 1 - math.exp(-score_val / 0.85)
+    rel_part = min(1.0, score_val / top)
+    return round(100 * min(0.99, 0.65 * abs_part + 0.35 * rel_part))
+
+
 # ---------- Лента ----------
 def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True, browse: bool = False) -> dict:
     t0 = now()
@@ -247,9 +307,9 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True, 
     w = prefs(uid, role)
     key = pkey(uid, role)
     tri = {r["news_id"]: db.unj(r["data_json"], {}) for r in db.q("SELECT news_id, data_json FROM triage WHERE key=?", (key,))}
-    ins = {r["news_id"] for r in db.q("SELECT news_id FROM insights WHERE key=?", (key,))}
-    states = {r["news_id"]: r["state"] for r in db.q(
-        "SELECT news_id,state FROM feedback_state WHERE user_uid=? AND role=?", (uid, role))}
+    ins_rows = db.q("SELECT news_id, readiness FROM insights WHERE key=?", (key,))
+    ins_map = {r["news_id"]: (r.get("readiness") or "ready") for r in ins_rows}
+    states = feedback.get_states(uid, role)
     scored = []
     for n in candidates(uid):
         if states.get(n["id"]) == "not_relevant":
@@ -270,19 +330,18 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True, 
         if not browse and per_main.get(m, 0) >= 4:
             continue
         per_main[m] = per_main.get(m, 0) + 1
-        items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins, role, generation))
+        items.append(card(n, s, p, best, tri.get(n["id"]), ins_map.get(n["id"]), role, generation))
         if not browse and len(items) >= size:
             break
     # свои новости пользователя видны всегда, даже со слабой связью: так проверяется работа на новых данных
     for n, s in scored:
         if n["user_uid"]:
-            items.append(card(n, s, p, best, tri.get(n["id"]), n["id"] in ins, role, generation))
+            items.append(card(n, s, p, best, tri.get(n["id"]), ins_map.get(n["id"]), role, generation))
     from . import team as team_mod
     tm = team_mod.get(uid, role)
     for it in items:
         it["feedback_state"] = states.get(it["id"], "neutral")
         it["helper"] = team_mod.assign(it, tm["members"])
-    # триаж мог решить, что событие компанию не касается: опускаем вниз, но не прячем
     # триаж уточняет значимость: «не касается» сильно понижает, срочность 3 немного повышает
     for it in items:
         k = 0.35 if it["relevant"] is False else (1.0 + 0.08 * (it["urgency"] - 2) if it["triaged"] else 1.0)
@@ -290,7 +349,7 @@ def feed(uid: str, role: str, limit: int | None = None, triage_on: bool = True, 
     items.sort(key=lambda it: -it["score"])
     top = items[0]["score"] if items else 1.0
     for it in items:
-        it["relevance"] = round(100 * min(1.0, 0.35 + 0.65 * it["score"] / top)) if top else 0
+        it["relevance"] = _relevance_pct(it["score"], top)
     pending = [it["id"] for it in items if not it["triaged"]][:24]
     if triage_on and pending and llm.budget_state()["spent_rub"] < config.BUDGET_HARD_RUB:
         start_triage(uid, role, pending)
@@ -305,7 +364,7 @@ def _refs(generation, uid, role, factors, sectors, query):
     return search.bank_refs_for(list(factors), list(sectors), query, {"uid": uid, "role": role}, k=2)
 
 
-def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bool, role: str, generation) -> dict:
+def card(n: dict, s: dict, p: dict, best: float, t: dict | None, insight_readiness: str | bool | None, role: str, generation) -> dict:
     t = validated(TriageItem, t)
     ext = validated(ExtractItem, n.get("extract"))
     main = s["main"]
@@ -325,6 +384,9 @@ def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bo
         areas = areas_for(s["factors"], p, s["reasons"])
     eff = (t or {}).get("effective_date") or ext.get("effective_date") or None
     days = (date.fromisoformat(eff) - now().date()).days if eff else None
+    deadline_label = (t or {}).get("deadline_label") or ext.get("deadline_label") or ""
+    has_insight = bool(insight_readiness)
+    readiness = insight_readiness if isinstance(insight_readiness, str) else ("ready" if insight_readiness else None)
     return {
         "id": n["id"], "title": n["title"], "headline": (t or {}).get("headline") or n["title"],
         "lead": ext.get("summary") or (n.get("text") or "")[:240], "url": n["url"], "source": n["source"], "source_id": n["source_id"],
@@ -333,28 +395,29 @@ def card(n: dict, s: dict, p: dict, best: float, t: dict | None, has_insight: bo
         "main_factor_label": FACTORS[main]["label"] if main else None,
         "factors": [{"id": f, "label": FACTORS[f]["label"]} for f in s["factors"]],
         "sectors": [{"id": x, "label": SECTORS[x]["label"]} for x in s["sectors"] if x in SECTORS],
-        "relevance": round(100 * min(1.0, 0.35 + 0.65 * s["score"] / best)), "score": round(s["score"], 4), "parts": s["parts"],
+        "relevance": _relevance_pct(s["score"], best), "score": round(s["score"], 4), "parts": s["parts"],
         "reasons": s["reasons"], "why": why, "urgency": int((t or {}).get("urgency") or (3 if s["materiality"] >= 5 else 2 if s["materiality"] >= 3 else 1)),
         "action": (t or {}).get("action") or "Разобрать влияние на компанию", "effective_date": eff, "days": days,
-        "deadline_label": (t or {}).get("deadline_label") or "", "key_facts": ext.get("key_facts") or [],
+        "deadline_label": deadline_label, "key_facts": ext.get("key_facts") or [],
         "bank_refs": [{"id": r["id"], "doc_id": r["doc_id"], "doc_title": r["doc_title"], "page": r["page"], "text": r["text"],
                        "quote": r["quote"], "verified": r["quote_verified"], "url": r["url"], "date": r["doc_date"]} for r in refs],
         "areas": areas[:4], "relevant": (t or {}).get("relevant") if isinstance((t or {}).get("relevant"), bool) else None,
-        "triaged": bool(t), "has_insight": has_insight,
+        "triaged": bool(t), "has_insight": has_insight, "insight_readiness": readiness,
     }
 
 
-# ---------- Триаж (deepseek, топ-12 за вызов) ----------
+# ---------- Триаж (топ-12 за вызов) ----------
 _tri_running: set[str] = set()
 _tri_tries: dict[str, int] = {}  # сколько раз новость уже отправляли в триаж: не больше двух попыток
 _tri_lock = threading.Lock()
 
-TRIAGE_PROMPT = """Ты аналитик Альфа-Банка. Для руководителя компании ({role}, фокус: {focus}) коротко оцени каждую новость.
+TRIAGE_PROMPT = """Ты AI-аналитик Альфи для руководителя компании ({role}, фокус: {focus}). Коротко оцени каждую новость.
 Не пересказывай новость. Объясни, что она меняет для ЭТОЙ компании, через её конкретный признак (отрасль, кредиты, ВЭД, страны, регион, контрагенты, группа).
+Не смешивай компанию клиента с другими компаниями из новости и не переноси общий рост рынка или экспорта страны автоматически на выручку компании: указывай, что это потенциальный эффект при наличии мощностей/контрактов.
 Событие почти всегда задевает несколько сфер бизнеса, а не только цену: выручку, закупки, долг, остатки, валютные расчёты,
 налоги, логистику, покупателей, контрагентов, персонал, требования регулятора, стратегию. Назови 2-4 затронутые сферы этой компании.
 Если событие компанию не касается, поставь relevant=false.
-Не упоминай внутренние коэффициенты, баллы и чувствительности. Цифры только из новости. Сегодня {today}.
+Не упоминай внутренние коэффициенты, баллы и чувствительности. Цифры и даты только из новости, не выдумывай. Сегодня {today}.
 Сферы (id): {areas}
 Профиль компании:
 {profile}
@@ -362,8 +425,8 @@ TRIAGE_PROMPT = """Ты аналитик Альфа-Банка. Для руко�
 Ответ строго JSON: {{"items":[{{"i":номер,"kind":"risk|chance|mixed","topic":"money|tax|sales|law|ved|people",
 "headline":"заголовок до 90 символов: что меняется для компании, а не что случилось","why":"1-2 предложения через конкретный признак компании",
 "relevant":true|false,"areas":[{{"id":"id сферы","impact":"positive|negative|mixed (хорошо или плохо для компании)","effect":"как именно меняется, до 90 символов"}}],
-"urgency":1-3,"action":"первое действие, до 60 символов, глаголом","effective_date":"YYYY-MM-DD если в новости есть срок вступления или дата события, иначе пусто",
-"deadline_label":"короткая подпись срока, например 'с 1 января' или пусто"}}]}}"""
+"urgency":1-3,"action":"первое действие, до 60 символов, глаголом","effective_date":"YYYY-MM-DD если в новости есть точная дата события/срока, иначе пусто",
+"deadline_label":"короткая подпись срока, например 'с 1 января' или 'в 2026 году', иначе пусто"}}]}}"""
 
 
 def start_triage(uid: str, role: str, ids: list[str]) -> None:

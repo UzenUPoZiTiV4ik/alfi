@@ -111,13 +111,15 @@ def verify_quote(page_text: str, quote: str, threshold: float = 0.8) -> tuple[bo
     return s >= threshold, round(s, 3)
 
 
+_DATE_CLEAN_RX = re.compile(r"\b(?:\d{1,2}\.\d{1,2}\.(?:19|20)\d{2}|(?:19|20)\d{2}-\d{2}-\d{2})\b")
 NUM_RX = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)\s*(%|п\.?\s*п\.?|б\.?\s*п\.?|млрд|млн|трлн|тыс|₽|руб|\$|долл)?", re.IGNORECASE)
 
 
 def numbers(text: str) -> list[str]:
-    """Значимые числа для проверки «цифры есть в источниках». Годы и мелкие порядковые числа пропускаем."""
+    """Значимые числа для проверки «цифры есть в источниках». Даты (ДД.ММ.ГГГГ, ГГГГ-ММ-ДД), годы и мелкие порядковые числа пропускаем."""
+    cleaned = _DATE_CLEAN_RX.sub(" ", text or "")
     out = []
-    for m in NUM_RX.finditer(text or ""):
+    for m in NUM_RX.finditer(cleaned):
         raw, unit = m.group(1), (m.group(2) or "")
         v = raw.replace(",", ".")
         try:

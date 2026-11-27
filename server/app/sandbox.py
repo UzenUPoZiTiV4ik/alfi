@@ -103,9 +103,13 @@ def create(text: str) -> dict:
         "sector": sector_of(code),
     }
     cols = ",".join(row)
-    db.ex(f"INSERT OR REPLACE INTO companies({cols}) VALUES({','.join('?' * len(row))})", list(row.values()))
+    with db.transaction() as connection:
+        connection.execute(f"INSERT OR REPLACE INTO companies({cols}) VALUES({','.join('?' * len(row))})", list(row.values()))
+        # Согласованно очищаем кэш ленты/разборов, если пересоздаётся та же тестовая компания
+        connection.execute("DELETE FROM triage WHERE key LIKE ?", (f"{uid}|%",))
+        connection.execute("DELETE FROM insights WHERE key LIKE ?", (f"{uid}|%",))
     db.kv_set(f"sandbox:{uid}", {"text": text, "parsed_by": how, "title": str(d.get("title") or "")[:80]})
-    profile.build.cache_clear()
+    profile.invalidate_cache()
     p = profile.build(uid)
     return {"uid": uid, "parsed_by": how, "title": p["title"], "sector_label": p["sector_label"], "revenue_label": p["revenue_label"],
             "features": p["features"], "note": "Платежей, группы и связей у тестовой компании нет: сервис покажет это как неполные данные."}

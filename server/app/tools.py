@@ -99,38 +99,87 @@ def _profile(ctx: dict, a: dict) -> dict:
     return {"summary": profile.brief(p, 6), "items": items}
 
 
+def _clean_label(v: Any) -> str:
+    s = str(v or "").strip()
+    return "" if s.lower() in ("", "нет в базе", "—", "-", "none", "null") else s
+
+
 def _counterparties(ctx: dict, a: dict) -> dict:
     p = profile.build(ctx["uid"])
     side = p[a["side"]]
     name = "поставщики" if a["side"] == "suppliers" else "покупатели"
     top = side["top"][: a.get("top", 5)]
-    lines = [f"{t['uid']}: {t['sector_label']}, {t['okved'] or 'нет в базе'}, {bn(t['amount'])} ({t['share']:.0%})"
-             + (", клиент банка" if t["client"] else "") + (", есть ключевой собственник" if t["key_owner"] else "") for t in top]
+    lines = []
+    top_meta = []
+    for t in top:
+        sec = _clean_label(t.get("sector_label"))
+        okv = _clean_label(t.get("okved"))
+        parts = [x for x in (sec, f"ОКВЭД {okv}" if okv else "") if x]
+        flags = [x for x in ("клиент банка" if t["client"] else "", "ключевой собственник" if t["key_owner"] else "") if x]
+        detail = f" ({', '.join(parts)})" if parts else ""
+        suffix = f", {', '.join(flags)}" if flags else ""
+        lines.append(f"{t['uid']}{detail}: {bn(t['amount'])} ({t['share']:.0%}){suffix}")
+        top_meta.append({
+            "uid": t["uid"], "sector": sec, "okved": okv,
+            "amount": bn(t["amount"]), "share": f"{t['share']:.0%}",
+            "client": bool(t["client"]), "key_owner": bool(t["key_owner"]),
+        })
+    sec_list = [{"label": s["label"], "share": f"{s['share']:.0%}"} for s in side["sectors"][:5] if _clean_label(s.get("label"))]
+    kpis = [
+        {"label": "Контрагентов", "value": str(side["n"])},
+        {"label": "Оборот", "value": bn(side["total"])},
+        {"label": "Крупнейший", "value": f"{side['top_share']:.0%}"},
+        {"label": "HHI", "value": str(side["hhi"])},
+    ]
+    if side.get("intra_group"):
+        kpis.append({"label": "Внутри группы", "value": bn(side["intra_group"])})
+    if side.get("bank_clients_share"):
+        kpis.append({"label": "Клиенты банка", "value": f"{side['bank_clients_share']:.0%}"})
+    if side.get("key_owner_share"):
+        kpis.append({"label": "Ключ. собств.", "value": f"{side['key_owner_share']:.0%}"})
+    sec_str = ", ".join(f"{s['label']} {s['share']}" for s in sec_list[:4])
     text = (f"Контрагенты компании {ctx['uid']} (отдельные юрлица, не путать с самой компанией). "
             f"Всего {side['n']} контрагентов, оборот {bn(side['total'])}, внутри группы {bn(side['intra_group'])}. Крупнейший {side['top_share']:.0%}, HHI {side['hhi']}. "
-            f"Отрасли: " + ", ".join(f"{s['label']} {s['share']:.0%}" for s in side["sectors"][:4]) +
-            f". С ключевым собственником {side['key_owner_share']:.0%}, клиенты банка {side['bank_clients_share']:.0%}. Крупнейшие: " + "; ".join(lines))
+            + (f"Отрасли: {sec_str}. " if sec_str else "")
+            + f"С ключевым собственником {side['key_owner_share']:.0%}, клиенты банка {side['bank_clients_share']:.0%}. Крупнейшие: " + "; ".join(lines))
     did = f"data:{a['side']}"
-    return {"summary": f"{name.capitalize()}: {text}", "items": [{"id": did, "kind": "data", "title": f"Платежи: {name}", "text": text}]}
+    meta = {"kind": "counterparties", "side": a["side"], "note": "отдельные юрлица", "kpis": kpis, "sectors": sec_list, "top": top_meta}
+    return {"summary": f"{name.capitalize()}: {text}", "items": [{"id": did, "kind": "data", "title": f"Платежи: {name}", "text": text, "meta": meta}]}
 
 
 def _group(ctx: dict, a: dict) -> dict:
     g = profile.build(ctx["uid"])["group"]
     if g["n"] <= 1:
         text = f"Компания {ctx['uid']} не входит в группу: в данных одна компания."
+        meta = {"kind": "group", "note": "одна компания", "kpis": [{"label": "Участников", "value": "1"}], "sectors": [], "top": []}
     else:
+        sec_list = [{"label": s["label"], "share": f"{s['share']:.0%}"} for s in g["sectors"] if _clean_label(s.get("label"))]
+        top_meta = [
+            {"uid": f"{m['uid']}{' (клиент)' if m.get('self') else ''}", "sector": _clean_label(m.get("sector_label")),
+             "okved": "", "amount": bn(m["revenue"]), "share": "", "client": bool(m.get("self")), "key_owner": False}
+            for m in g["members"][:6]
+        ]
+        kpis = [{"label": "Группа", "value": str(g["id"])}, {"label": "Компаний", "value": str(g["n"])}, {"label": "Выручка группы", "value": bn(g["revenue"])}]
         text = (f"Группа {g['id']} (включает компанию {ctx['uid']} и другие юрлица, не смешивать их показатели): "
                 f"{g['n']} компаний, суммарная выручка группы {bn(g['revenue'])}. Отрасли: " +
-                ", ".join(f"{s['label']} {s['share']:.0%}" for s in g["sectors"]) + ". Крупнейшие участники: " +
-                "; ".join(f"{m['uid']}{' (клиент)' if m.get('self') else ''} {m['sector_label']} {bn(m['revenue'])}" for m in g["members"][:6]))
-    return {"summary": text, "items": [{"id": "data:group", "kind": "data", "title": "Группа компаний", "text": text}]}
+                ", ".join(f"{s['label']} {s['share']}" for s in sec_list) + ". Крупнейшие участники: " +
+                "; ".join(f"{m['uid']}{' (клиент)' if m.get('self') else ''} {_clean_label(m.get('sector_label'))} {bn(m['revenue'])}".replace("  ", " ") for m in g["members"][:6]))
+        meta = {"kind": "group", "note": "суммарно по группе, не путать с клиентом", "kpis": kpis, "sectors": sec_list, "top": top_meta}
+    return {"summary": text, "items": [{"id": "data:group", "kind": "data", "title": "Группа компаний", "text": text, "meta": meta}]}
 
 
 def _links(ctx: dict, a: dict) -> dict:
     lk = profile.build(ctx["uid"])["links"]
+    top_meta = [
+        {"uid": c["uid"], "sector": _clean_label(SECTORS.get(c["sector"], {}).get("label")),
+         "okved": "", "amount": bn(c["revenue"]), "share": f"{c['shared']} общ. лиц", "client": False, "key_owner": False}
+        for c in lk["companies"][:6]
+    ]
+    kpis = [{"label": "Связанных физлиц", "value": str(lk["persons"])}, {"label": "Связанных компаний", "value": str(len(lk["companies"]))}]
     text = (f"Связанных физлиц у компании {ctx['uid']}: {lk['persons']}. Другие компании через общих физлиц (отдельные юрлица): " +
             ("; ".join(f"{c['uid']} ({SECTORS.get(c['sector'], {}).get('label', '—')}, {bn(c['revenue'])}, общих лиц {c['shared']})" for c in lk["companies"][:6]) or "нет"))
-    return {"summary": text, "items": [{"id": "data:links", "kind": "data", "title": "Связи через физлиц", "text": text}]}
+    meta = {"kind": "links", "note": "отдельные юрлица", "kpis": kpis, "sectors": [], "top": top_meta}
+    return {"summary": text, "items": [{"id": "data:links", "kind": "data", "title": "Связи через физлиц", "text": text, "meta": meta}]}
 
 
 def _search_news(ctx: dict, a: dict) -> dict:

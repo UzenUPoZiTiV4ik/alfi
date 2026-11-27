@@ -177,9 +177,100 @@ function docHTML(r) {
       ${bv.summary || pts.length ? `<p class="b-bank__f">Официальная аналитика банка, отдельно от выводов AI Альфи${bankN ? ` · <button type="button" data-open="b-src">${bankN} ${plural(bankN, 'материал', 'материала', 'материалов')}</button>` : ''}</p>` : ''}
     </div>`);
 
+  const cleanDataText = (s) => String(s || '')
+    .replace(/,\s*нет в базе/gi, '')
+    .replace(/:\s*нет в базе(?:,\s*нет в базе)*/gi, ':')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  const parseDataCard = (id, x) => {
+    if (x.meta && Array.isArray(x.meta.kpis)) return x.meta;
+    const raw = String(x.text || '');
+    if (!id.startsWith('data:') && raw.length < 130) return null;
+    const kpis = [];
+    const sectors = [];
+    const top = [];
+    const pick = (rx, label) => { const m = raw.match(rx); if (m && m[1]) kpis.push({ label, value: m[1].trim() }); };
+    pick(/Всего\s+(\d[\d\s]*)\s+контрагент/i, 'Контрагентов');
+    pick(/оборот\s+([^,.;]+)/i, 'Оборот');
+    pick(/Крупнейший\s+(\d+%)/i, 'Крупнейший');
+    pick(/HHI\s+([\d.,]+)/i, 'HHI');
+    pick(/внутри группы\s+([^,.;]+)/i, 'Внутри группы');
+    pick(/клиенты банка\s+(\d+%)/i, 'Клиенты банка');
+    pick(/ключевым собственником\s+(\d+%)/i, 'Ключ. собств.');
+    pick(/Группа\s+([A-Za-z0-9_-]+)/i, 'Группа');
+    pick(/(\d+)\s+компан/i, 'Компаний');
+    pick(/суммарная выручка группы\s+([^,.;]+)/i, 'Выручка группы');
+    pick(/Связанных физлиц[^:]*:\s*(\d+)/i, 'Связанных физлиц');
+    const sm = raw.match(/Отрасли:\s*([^.]+)\./i);
+    if (sm) {
+      sm[1].split(',').forEach((part) => {
+        const m = part.trim().match(/^(.+?)\s+(\d+%)$/);
+        if (m && !/^нет в базе$/i.test(m[1])) sectors.push({ label: m[1].trim(), share: m[2] });
+      });
+    }
+    const tm = raw.match(/(?:Крупнейшие(?: участники)?|Другие компании[^:]*):\s*(.+)$/i);
+    if (tm && tm[1].trim() !== 'нет') {
+      tm[1].split(';').forEach((entry) => {
+        const clean = entry.trim();
+        if (!clean) return;
+        const m = clean.match(/^([A-Za-z0-9_]+(?:\s*\(клиент\))?)[:\s]+(.+)$/);
+        if (!m) return;
+        const uid = m[1].trim();
+        let rest = m[2].replace(/\bнет в базе\b,?\s*/gi, '').replace(/^,\s*/, '').trim();
+        const sh = rest.match(/\((\d+%)\)/);
+        const amt = rest.match(/(\d[\d\s,.]*\s*(?:млрд|млн|тыс)?\s*₽)/i);
+        const isClient = /клиент банка/i.test(rest);
+        const isOwner = /ключевой собственник/i.test(rest);
+        let sec = rest
+          .replace(/(\d[\d\s,.]*\s*(?:млрд|млн|тыс)?\s*₽)/gi, '')
+          .replace(/\(\d+%\)/g, '')
+          .replace(/клиент банка|есть ключевой собственник|ключевой собственник/gi, '')
+          .replace(/[(),]+/g, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        top.push({ uid, sector: sec, okved: '', amount: amt ? amt[1].trim() : '', share: sh ? sh[1] : '', client: isClient, key_owner: isOwner });
+      });
+    }
+    if (!kpis.length && !sectors.length && !top.length) return null;
+    const note = /отдельные юрлица/i.test(raw) ? 'отдельные юрлица' : /не смешивать/i.test(raw) ? 'суммарно по группе' : '';
+    return { kind: id.replace('data:', ''), note, kpis, sectors, top };
+  };
+
+  const renderDataGroup = (xs, label, suffix) => {
+    const compact = [];
+    const rich = [];
+    xs.forEach((id) => {
+      const x = SRC[id];
+      const card = parseDataCard(id, x);
+      if (card) rich.push({ id, x, card });
+      else compact.push({ id, x });
+    });
+    const compactHtml = compact.length ? `<div class="b-facts-grid">${compact.map(({ id, x }) =>
+      `<button type="button" class="b-fchip" data-pop="${esc(id)}"><span class="b-fchip__k">${esc(ruDate(x.title || id))}</span><b class="b-fchip__v">${esc(tidy(cleanDataText(x.text || '')))}</b></button>`
+    ).join('')}</div>` : '';
+    const richHtml = rich.map(({ id, x, card }) => {
+      const topLabel = card.kind === 'group' ? 'Участники группы' : card.kind === 'links' ? 'Связанные компании' : 'Крупнейшие контрагенты';
+      const kpisHtml = card.kpis && card.kpis.length ? `<div class="b-dkpis">${card.kpis.map((k) =>
+        `<div class="b-dkpi"><span>${esc(k.label)}</span><b>${esc(k.value)}</b></div>`
+      ).join('')}</div>` : '';
+      const secsHtml = card.sectors && card.sectors.length ? `<div class="b-dtags"><span class="b-dtags__k">Отрасли:</span>${card.sectors.map((s) =>
+        `<span class="b-dtag">${esc(s.label)} <b>${esc(s.share)}</b></span>`
+      ).join('')}</div>` : '';
+      const topHtml = card.top && card.top.length ? `<details class="b-dtop"><summary>${topLabel} <span>${card.top.length}</span></summary><ul class="b-dtop__list">${card.top.map((t) => {
+        const sub = [t.sector, t.okved ? `ОКВЭД ${t.okved}` : '', t.client ? 'клиент банка' : '', t.key_owner ? 'ключ. собств.' : ''].filter(Boolean).join(' · ');
+        return `<li><span class="b-dtop__id"><code>${esc(t.uid)}</code>${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="b-dtop__val"><b>${esc(t.amount || '')}</b>${t.share ? `<em>${esc(t.share)}</em>` : ''}</span></li>`;
+      }).join('')}</ul></details>` : '';
+      return `<div class="b-dcard"><div class="b-dcard__h"><button type="button" class="b-dcard__t" data-pop="${esc(id)}">${esc(ruDate(x.title || id))}</button>${card.note ? `<span class="b-dcard__note">${esc(card.note)}</span>` : ''}</div>${kpisHtml}${secsHtml}${topHtml}</div>`;
+    }).join('');
+    return `<div class="b-srcg"><p class="b-sub">${label}${suffix}<span>${xs.length}</span></p>${compactHtml}${richHtml}</div>`;
+  };
+
   const renderSrcGroup = (subset, suffix = '') => SRC_GROUPS.map(([g, label]) => {
     const xs = subset.filter((id) => srcGroup(id) === g);
-    return xs.length ? `<div class="b-srcg"><p class="b-sub">${label}${suffix}<span>${xs.length}</span></p><ul class="b-srcs">${xs.map((id) => { const x = SRC[id]; return `<li><button type="button" data-pop="${esc(id)}"><span>${esc(ruDate(x.title || id))}</span>${g === 'bank' && x.verified === false ? '<small>без дословной цитаты</small>' : (g === 'data' || g === 'user') && x.text ? `<small>${esc(tidy(x.text))}</small>` : ''}</button></li>`; }).join('')}</ul></div>` : '';
+    if (!xs.length) return '';
+    if (g === 'data') return renderDataGroup(xs, label, suffix);
+    return `<div class="b-srcg"><p class="b-sub">${label}${suffix}<span>${xs.length}</span></p><ul class="b-srcs">${xs.map((id) => { const x = SRC[id]; return `<li><button type="button" data-pop="${esc(id)}"><span>${esc(ruDate(x.title || id))}</span>${g === 'bank' && x.verified === false ? '<small>без дословной цитаты</small>' : g === 'user' && x.text ? `<small>${esc(tidy(x.text))}</small>` : ''}</button></li>`; }).join('')}</ul></div>`;
   }).join('');
 
   const sources = renderSrcGroup(citedIds) + (extraIds.length ? `<div class="b-srcextra"><p class="b-sub-ext">Дополнительные проверенные источники</p>${renderSrcGroup(extraIds)}</div>` : '');
@@ -237,7 +328,7 @@ function showPop(btn, id) {
   const k = id.split(':')[0], url = safeUrl(s.url);
   rPop.innerHTML = `<p class="r-pop__k is-${esc(k)}">${esc(KIND_T[k] || k)}${k === 'bank' && s.verified != null ? (s.verified ? ' · цитата сверена с отчётом' : ' · без дословной цитаты') : ''}${s.stale ? ' · материал устарел' : ''}</p>
     <p class="r-pop__t">${esc(s.title || id)}</p>
-    ${s.quote ? `<q>${esc(cut(s.quote, 320))}</q>` : s.text ? `<p class="r-pop__x">${esc(cut(s.text, 320))}</p>` : ''}
+    ${s.quote ? `<q>${esc(cut(s.quote, 320))}</q>` : s.text ? `<p class="r-pop__x">${esc(cut(String(s.text).replace(/,\s*нет в базе/gi, '').replace(/:\s*нет в базе(?:,\s*нет в базе)*/gi, ':'), 320))}</p>` : ''}
     ${url ? `<p class="r-pop__f"><a class="btn btn--secondary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${k === 'bank' ? 'Открыть отчёт' : 'Открыть'}<svg class="ic ic--sm"><use href="#i-ext"/></svg></a></p>` : ''}`;
   rPop.hidden = false;
   const r = btn.getBoundingClientRect(), d = ins.getBoundingClientRect(), pw = Math.min(380, d.width - 24);

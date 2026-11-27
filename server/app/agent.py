@@ -139,7 +139,7 @@ class Pool:
         return [i for i in self.items.values() if i["kind"] == kind]
 
     def view(self, ids: set[str], cited: set[str] | None = None) -> dict[str, dict]:
-        keep = ("id", "kind", "title", "text", "source", "url", "page", "quote", "verified", "doc_id", "published", "stale", "chunk_kind")
+        keep = ("id", "kind", "title", "text", "source", "url", "page", "quote", "verified", "doc_id", "published", "stale", "chunk_kind", "meta")
         out: dict[str, dict] = {}
         for i in ids:
             if i not in self.items:

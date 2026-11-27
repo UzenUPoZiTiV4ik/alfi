@@ -4,358 +4,704 @@
 <meta charset="utf-8">
 <title>Альфи · замеры v2</title>
 <meta name="viewport" content="width=1600">
+<!--
+  Слайды замеров. Данные: docs/bench/faithbench.json, results.json, ranking.json.
+  Рендер: node docs/diagrams/render.js "$PWD/docs/diagrams/bench.html" docs/diagrams
+-->
 <style>
   :root {
-    --red:#EF3124; --red-soft:#FDECEA; --ink:#0B0B0C; --text:#1C1D20; --muted:#6D7076;
-    --line:#E2E4E8; --bg:#F3F4F5; --green:#238236; --green-soft:#E9F7EC; --amber:#A06300; --amber-soft:#FEF5E4;
+    --red: #EF3124;
+    --red-soft: #FDECEA;
+    --red-ink: #C21F14;
+    --ink: #0B0B0C;
+    --text: #1C1D20;
+    --muted: #6D7076;
+    --line: #E4E6E9;
+    --bg: #F3F4F5;
+    --fill: #EAEBED;
+    --gray: #A3A6AD;
+    --green: #2E8A3A;
+    --green-soft: #E6F3E8;
+    --amber: #B87500;
+    --amber-soft: #FDF1DC;
+    --dark: #151517;
   }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background:#D9DADD; color:var(--text); -webkit-font-smoothing:antialiased; }
-  .slide { position:relative; width:1600px; height:1000px; margin:40px auto; padding:54px 68px 48px; background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
-  .top { display:flex; align-items:center; gap:12px; }
-  .tag { display:inline-flex; align-items:center; height:32px; padding:0 13px; border-radius:10px; background:var(--red); color:#fff; font-size:15px; font-weight:700; }
-  .num { font-size:15px; font-weight:600; color:var(--muted); }
-  .brand { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700; color:var(--ink); }
-  .brand i { width:24px; height:24px; border-radius:7px; background:var(--red); display:grid; place-items:center; color:#fff; font-style:normal; font-size:14px; font-weight:800; }
-  h1 { margin-top:16px; font-size:44px; line-height:1.06; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-  .lead { margin-top:10px; font-size:18px; line-height:1.42; color:var(--muted); max-width:1320px; }
-  .lead b { color:var(--ink); }
-  .body { flex:1; min-height:0; margin-top:24px; display:flex; flex-direction:column; gap:16px; }
-  .card { background:#fff; border-radius:24px; padding:24px 28px; }
-  .card.dark { background:#151517; color:#fff; }
-  .k { font-size:12px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
-  .card.dark .k { color:rgba(255,255,255,.55); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background: #D9DADD; color: var(--text); -webkit-font-smoothing: antialiased; }
 
-  /* Таблица замеров */
-  table.tbl { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
-  table.tbl th { text-align:left; font-size:11.5px; font-weight:750; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); padding:0 10px 10px; border-bottom:1.5px solid var(--line); }
-  table.tbl th.r, table.tbl td.r { text-align:right; }
-  table.tbl td { padding:8.5px 10px; border-bottom:1px solid #F0F1F3; color:var(--text); vertical-align:middle; }
-  table.tbl tr:last-child td { border-bottom:none; }
-  table.tbl tr.win td { background:#FFF7F6; font-weight:650; }
-  table.tbl tr.win td:first-child { border-radius:10px 0 0 10px; }
-  table.tbl tr.win td:last-child { border-radius:0 10px 10px 0; }
-  table.tbl tr.bad td { color:#8C8F96; }
-  .mono { font-family:ui-monospace, Menlo, monospace; font-size:13px; color:var(--ink); font-weight:650; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:7px; font-size:12px; font-weight:750; }
-  .pill.g { background:var(--green-soft); color:var(--green); }
-  .pill.r { background:var(--red-soft); color:#C62216; }
-  .pill.a { background:var(--amber-soft); color:var(--amber); }
-  .pill.m { background:#ECEEF1; color:#555961; }
-  .pill.d { background:#151517; color:#fff; }
+  /* Каркас слайда (как в docs/changelog/index.html) */
+  .slide { position: relative; width: 1600px; height: 1000px; margin: 40px auto; padding: 60px 72px 56px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; gap: 12px; padding-right: 200px; }
+  .tag { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 10px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; }
+  .num { font-size: 15px; font-weight: 600; color: var(--muted); }
+  h1 { margin-top: 20px; font-size: 46px; line-height: 1.07; font-weight: 800; letter-spacing: -.03em; color: var(--ink); max-width: 1220px; }
+  h1.fit { font-size: 43px; letter-spacing: -.035em; max-width: 1250px; }
+  .lead { margin-top: 12px; font-size: 19px; line-height: 1.45; color: var(--muted); max-width: 1150px; }
+  .lead b { color: var(--ink); font-weight: 650; }
+  .corner { position: absolute; right: 40px; top: 26px; width: 190px; height: 190px; pointer-events: none; }
+  .corner img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .body { flex: 1; min-height: 0; margin-top: 28px; display: grid; gap: 16px; }
 
-  .bar-inline { display:inline-flex; align-items:center; gap:8px; width:140px; }
-  .bar-inline i { flex:1; height:10px; border-radius:5px; background:#ECEEF1; overflow:hidden; display:block; }
-  .bar-inline i b { display:block; height:100%; border-radius:5px; }
+  /* Карточки */
+  .card { background: #fff; border-radius: 26px; padding: 24px 28px; min-width: 0; min-height: 0; }
+  .card.dark { background: var(--dark); color: #fff; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
+  .k { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .card.dark .k { color: rgba(255,255,255,.5); }
+  .ttl { margin-top: 6px; font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; color: var(--ink); }
+  .card.dark .ttl { color: #fff; }
+  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .mono { font: 650 14px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
 
-  .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; }
-  .kpis.c3 { grid-template-columns:repeat(3, 1fr); }
-  .kpi { background:#fff; border-radius:20px; padding:18px 22px; }
-  .kpi.dark { background:#151517; color:#fff; }
-  .kpi b { display:block; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); line-height:1.05; font-variant-numeric:tabular-nums; }
-  .kpi.hl b { color:var(--red); }
-  .kpi.gr b { color:var(--green); }
-  .kpi.dark b { color:#FF8A80; }
-  .kpi span { display:block; margin-top:6px; font-size:13.5px; line-height:1.35; color:var(--muted); }
-  .kpi.dark span { color:rgba(255,255,255,.72); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .legend i.dot { border-radius: 50%; }
 
-  .cols2 { display:grid; grid-template-columns:1.15fr 0.85fr; gap:16px; flex:1; min-height:0; }
-  .cols2.eq { grid-template-columns:1fr 1fr; }
+  .pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+  .pill.g { background: var(--green-soft); color: var(--green); }
+  .pill.r { background: var(--red-soft); color: var(--red-ink); }
+  .pill.m { background: var(--fill); color: #4F5258; }
+  .pill.d { background: var(--dark); color: #fff; }
 
-  /* Бары сравнения */
-  .mrows { display:flex; flex-direction:column; gap:13px; }
-  .mrow { display:grid; grid-template-columns:170px 1fr 118px; gap:14px; align-items:center; }
-  .mrow .lbl { font-size:15px; font-weight:700; color:var(--ink); }
-  .mrow .sub { font-size:12px; color:var(--muted); font-weight:500; display:block; margin-top:2px; }
-  .pairbar { display:flex; flex-direction:column; gap:5px; }
-  .pb { display:flex; align-items:center; gap:8px; }
-  .pb small { width:52px; font-size:12px; color:var(--muted); text-align:right; font-weight:600; }
-  .pb i { flex:1; height:14px; border-radius:5px; background:var(--bg); overflow:hidden; display:block; }
-  .pb i span { display:block; height:100%; border-radius:5px; }
-  .pb em { width:46px; font-style:normal; font-size:13.5px; font-weight:750; font-variant-numeric:tabular-nums; color:var(--ink); }
-  .delta { text-align:right; font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
-  .delta.pos { color:var(--green); }
+  /* KPI */
+  .kpis { display: grid; gap: 16px; }
+  .kpi { background: #fff; border-radius: 22px; padding: 18px 22px; min-width: 0; }
+  .kpi b { display: block; font-size: 36px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .kpi span { display: block; margin-top: 7px; font-size: 14px; line-height: 1.38; color: var(--muted); }
+  .kpi.hl b { color: var(--red); }
+  .kpi.gr b { color: var(--green); }
+  .kpi.dark { background: var(--dark); }
+  .kpi.dark b { color: #fff; }
+  .kpi.dark span { color: rgba(255,255,255,.62); }
 
-  .verdict { background:#151517; border-radius:20px; padding:18px 24px; color:#fff; font-size:15.5px; line-height:1.45; }
-  .verdict b { color:#FF8A80; }
-  .note { font-size:12.5px; line-height:1.4; color:var(--muted); }
-  .list { display:flex; flex-direction:column; gap:10px; margin-top:6px; }
-  .li { display:flex; gap:10px; align-items:flex-start; font-size:14.5px; line-height:1.4; }
-  .li i { width:22px; height:22px; border-radius:7px; background:var(--red-soft); color:var(--red); font-style:normal; font-weight:800; font-size:12px; display:grid; place-items:center; flex:none; margin-top:1px; }
-  .li b { color:var(--ink); }
-  .card.dark .li { color:rgba(255,255,255,.84); }
-  .card.dark .li b { color:#fff; }
-  .card.dark .li i { background:rgba(239,49,36,.24); color:#FF8A80; }
+  svg text { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; }
+  .chart { flex: 1; min-height: 0; position: relative; }
+  .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+  /* ===== 08 FaithBench ===== */
+  .b08 { grid-template-columns: 1fr 520px; grid-template-rows: 1fr auto; }
+  .b08 .faith { display: flex; flex-direction: column; padding: 24px 28px 18px; }
+  .b08 .kpis { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
+  .budget { flex: 1; display: flex; flex-direction: column; padding: 24px 28px; }
+  .brows { margin-top: 12px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .brow { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: baseline; }
+  .brow .nm { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .brow .nm small { margin-left: 6px; font: 650 12px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
+  .brow .val { font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .brow .trk { grid-column: 1 / -1; height: 10px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+  .brow .trk span { display: block; height: 100%; border-radius: 6px; background: var(--ink); }
+  .brow.best .trk span { background: var(--red); }
+  .brow.best .val { color: var(--red); }
+  .brow.weak .trk span { background: var(--gray); }
+  .brow.weak .val, .brow.weak .nm { color: var(--muted); }
+  .brow .meta { grid-column: 1 / -1; display: flex; gap: 14px; font-size: 12px; line-height: 1.2; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .brow .meta b { color: var(--text); font-weight: 750; }
+  .insight { padding: 18px 24px; border-radius: 22px; }
+  .b08 .kpi { padding: 15px 22px; }
+  .b08 .kpi b { font-size: 33px; }
+  .b08 .kpi span { font-size: 13.5px; margin-top: 5px; }
+  .insight .k { margin-bottom: 8px; }
+  .insight p { font-size: 15.5px; line-height: 1.45; color: rgba(255,255,255,.78); }
+  .insight p b { color: #fff; }
+  .insight p em { font-style: normal; color: #7FD48A; font-weight: 750; }
+
+  /* ===== 09 E2E ===== */
+  .b09 { grid-template-columns: 1fr 500px; }
+  .scatter { flex: 1; display: flex; flex-direction: column; padding: 22px 26px 14px; }
+  .scatter .legend { margin-top: 10px; }
+  .vs { padding: 20px 26px 22px; }
+  .vs-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  .vs-grid h4 { font-size: 14px; font-weight: 750; color: var(--ink); margin-bottom: 9px; }
+  .vs-grid h4 span { font-weight: 600; color: var(--muted); }
+  .vb { display: grid; grid-template-columns: 72px 1fr 52px; gap: 9px; align-items: center; margin-top: 7px; }
+  .vb small { font-size: 12.5px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .vb i { display: block; height: 14px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .vb i span { display: block; height: 100%; border-radius: 5px; background: var(--gray); }
+  .vb em { font-style: normal; text-align: right; font-size: 14.5px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .vb.agent small { color: var(--ink); }
+  .vb.agent i span { background: var(--red); }
+  .vb.agent em { color: var(--ink); }
+  .vs-note { margin-top: 12px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .vs-note b { color: var(--ink); }
+
+  .stack { flex: 1; display: flex; flex-direction: column; padding: 26px 28px; }
+  .roles { margin-top: 16px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+  .role { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+  .role > i { width: 34px; height: 34px; border-radius: 10px; background: rgba(239,49,36,.22); color: #FF8A80; display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 800; }
+  .role.main > i { background: var(--red); color: #fff; }
+  .role .rn { font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+  .role .rm { margin-top: 3px; font: 700 16px/1.25 ui-monospace, "SF Mono", Menlo, monospace; color: #fff; }
+  .role .rm small { font: 650 12.5px/1 Inter, -apple-system, sans-serif; margin-left: 6px; padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,.12); color: rgba(255,255,255,.8); }
+  .role .rd { margin-top: 5px; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.58); }
+  .role .rf { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .role .rf span { height: 26px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; background: rgba(255,255,255,.08); font-size: 13px; font-weight: 650; color: rgba(255,255,255,.88); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .role .rf span.hot { background: rgba(239,49,36,.24); color: #FFB3AC; }
+  .role .rf span.ok { background: rgba(127,212,138,.16); color: #9BE3A4; }
+  .opt { margin-top: 10px; border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); }
+  .opt .ot { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.82); }
+  .opt .ot b { color: #fff; }
+  .ob { margin-top: 8px; display: grid; grid-template-columns: 92px 1fr 118px; gap: 9px; align-items: center; }
+  .ob small { font-size: 12.5px; font-weight: 650; color: rgba(255,255,255,.6); white-space: nowrap; }
+  .ob i { display: block; height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .ob i span { display: block; height: 100%; border-radius: 5px; background: rgba(255,255,255,.35); }
+  .ob.fast i span { background: var(--red); }
+  .ob em { font-style: normal; text-align: right; font-size: 13px; font-weight: 750; color: rgba(255,255,255,.75); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ob.fast em { color: #fff; }
+  .b09 .kpis { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .b09 .kpi { padding: 16px 18px; }
+  .b09 .kpi b { font-size: 32px; }
+  .b09 .kpi span { font-size: 13px; }
+
+  /* ===== 10 Ranking ===== */
+  .b10 { grid-template-columns: 1fr 500px; }
+  .rank { display: flex; flex-direction: column; padding: 26px 30px 24px; }
+  .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .hero-num { display: flex; align-items: center; gap: 18px; margin-top: 8px; }
+  .hero-num .was { font-size: 64px; font-weight: 800; letter-spacing: -.04em; color: #B4B7BD; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hero-num .now { font-size: 64px; font-weight: 800; letter-spacing: -.04em; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
+  .hero-num .arr { width: 44px; height: 44px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 22px; font-weight: 800; box-shadow: 0 6px 16px -6px rgba(239,49,36,.6); }
+  .hero-num .pill { height: 30px; font-size: 15px; padding: 0 11px; border-radius: 9px; margin-left: 4px; }
+  .hero-side { text-align: right; font-size: 14px; line-height: 1.5; color: var(--muted); padding-bottom: 4px; white-space: nowrap; }
+  .hero-side b { color: var(--ink); font-weight: 750; }
+  .matrix { margin-top: 18px; flex: 1; display: flex; flex-direction: column; border-radius: 18px; background: var(--bg); padding: 14px 20px 12px; }
+  .mx-row { display: grid; grid-template-columns: 112px 400px 40px 1fr; align-items: center; column-gap: 12px; }
+  .mx-head { padding-bottom: 6px; }
+  .mx-head span { font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .mx-head span.r { color: var(--red); }
+  .mx-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+  .mx-row .co { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .mx-row .co small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; }
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dots i { flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--ink); }
+  .dots i.n { background: #fff; border: 2.5px solid var(--red); }
+  .dots em { margin-left: 8px; font-style: normal; font-size: 13px; font-weight: 750; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dots em.bad { color: var(--red-ink); }
+  .dots em.ok { color: var(--green); }
+  .mx-row .to { text-align: center; font-size: 16px; font-weight: 800; color: var(--red); }
+  .mx-foot { margin-top: 6px; display: flex; justify-content: space-between; gap: 16px; padding-top: 10px; border-top: 1px solid #E1E3E6; }
+  .mtiles { margin-top: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .mt { border-radius: 18px; border: 1.5px solid var(--line); padding: 14px 16px; }
+  .mt .mh { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .mt .mh b { font-size: 14.5px; font-weight: 750; color: var(--ink); }
+  .mt .mv { margin-top: 8px; display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+  .mt .mv s { text-decoration: none; font-size: 17px; font-weight: 700; color: #A3A6AD; }
+  .mt .mv i { font-style: normal; color: var(--red); font-weight: 800; }
+  .mt .mv strong { font-size: 25px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+  .mt .tr { margin-top: 9px; display: grid; gap: 4px; }
+  /* Дорожка всегда на всю ширину, заливка по --v: ноль выглядит как пустая дорожка */
+  .mt .tr span { display: block; height: 7px; border-radius: 4px; }
+  .mt .tr .w { background: linear-gradient(90deg, #C9CBD0 var(--v), #F0F1F3 var(--v)); }
+  .mt .tr .a { background: linear-gradient(90deg, var(--red) var(--v), #F0F1F3 var(--v)); }
+  .mt small { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+  .fixes { flex: 1; display: flex; flex-direction: column; padding: 24px 28px; }
+  .fx { margin-top: 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .fi { display: grid; grid-template-columns: 34px 1fr; gap: 3px 14px; padding: 14px 0; border-top: 1px solid #ECEDEF; }
+  .fi:first-child { border-top: none; padding-top: 4px; }
+  .fi > i { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; background: var(--red-soft); color: var(--red); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 800; }
+  .fi b { font-size: 17.5px; line-height: 1.3; font-weight: 750; color: var(--ink); }
+  .fi span { margin-top: 2px; font-size: 15px; line-height: 1.45; color: var(--muted); }
+  .fi code { font: 650 13px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--red-ink); background: var(--red-soft); padding: 2px 5px; border-radius: 5px; }
+  .verdict { border-radius: 22px; padding: 20px 24px; }
+  .verdict .k { margin-bottom: 8px; }
+  .verdict p { font-size: 15.5px; line-height: 1.45; color: rgba(255,255,255,.78); }
+  .verdict p b { color: #fff; }
+  .vchips { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 7px; }
+  .vchips span { height: 30px; padding: 0 11px; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7); white-space: nowrap; }
+  .vchips b { color: #7FD48A; font-weight: 800; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 
-<!-- 1. Alfi-FaithBench: галлюцинации по 6 моделям и режимам мышления -->
+<!-- 08. Alfi-FaithBench: галлюцинации по 6 моделям и режимам мышления -->
 <section class="slide" data-name="08-bench-faith">
-  <div class="top"><span class="tag">Замеры · галлюцинации</span><span class="num">1 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
-  <h1>Alfi-FaithBench: галлюцинации по 6 моделям × off / low / on</h1>
-  <p class="lead">288 прогонов на 18 кейсах-ловушках по 6 категориям (цифры, перенос рыночного роста, противоречия дат, атрибуция банка, смешение юрлиц, неполные данные). Двойная проверка: детерминистика + cross-family судья (без self-bias).</p>
-  <div class="body">
-    <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding:20px 26px">
-      <table class="tbl">
-        <thead>
-          <tr>
-            <th>Модель шлюза</th>
-            <th>Мышление</th>
-            <th>Галлюцинации ↓</th>
-            <th class="r">Ловушки ↑</th>
-            <th class="r">Верность</th>
-            <th class="r">JSON</th>
-            <th class="r">Сек</th>
-            <th class="r">₽ / выз</th>
-            <th class="r">Выз / 600 ₽</th>
-            <th>Роль в Альфи</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="win">
-            <td><span class="mono">z-ai/glm-5.3-flash</span></td>
-            <td><span class="pill g">low / off</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:2%;background:var(--green)"></b></i><span class="pill g">0,0%</span></span></td>
-            <td class="r"><b>100,0%</b></td><td class="r">1,000</td><td class="r">100%</td><td class="r">5,6–6,9</td><td class="r"><b>0,038–0,044</b></td><td class="r"><b>15 656</b></td>
-            <td><span class="pill d">Критик</span></td>
-          </tr>
-          <tr class="win">
-            <td><span class="mono">deepseek/deepseek-v4.1-flash</span></td>
-            <td><span class="pill g">on</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:2%;background:var(--green)"></b></i><span class="pill g">0,0%</span></span></td>
-            <td class="r"><b>100,0%</b></td><td class="r">1,000</td><td class="r">100%</td><td class="r">10,1</td><td class="r">0,108</td><td class="r">5 536</td>
-            <td><span class="pill m">Сложный аудит</span></td>
-          </tr>
-          <tr class="win">
-            <td><span class="mono">google/gemma-4-26b-a4b-it</span></td>
-            <td><span class="pill m">off</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--green)"></b></i><span class="pill g">5,6%</span></span></td>
-            <td class="r">94,4%</td><td class="r">0,967</td><td class="r">100%</td><td class="r"><b>3,4</b></td><td class="r"><b>0,018</b></td><td class="r"><b>32 564</b></td>
-            <td><span class="pill d">Разметка RSS</span></td>
-          </tr>
-          <tr class="win">
-            <td><span class="mono">deepseek/deepseek-v4.1-flash</span></td>
-            <td><span class="pill m">off</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--green)"></b></i><span class="pill g">5,6%</span></span></td>
-            <td class="r">94,4%</td><td class="r">1,000</td><td class="r">100%</td><td class="r">4,9</td><td class="r">0,057</td><td class="r">10 472</td>
-            <td><span class="pill r">Основной агент</span></td>
-          </tr>
-          <tr>
-            <td><span class="mono">z-ai/glm-5.3-flash</span></td>
-            <td><span class="pill a">on</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--amber)"></b></i><span class="pill a">5,6%</span></span></td>
-            <td class="r">94,4%</td><td class="r">0,983</td><td class="r">100%</td><td class="r">25,7</td><td class="r">0,174</td><td class="r">3 438</td>
-            <td>медленнее в 4×</td>
-          </tr>
-          <tr>
-            <td><span class="mono">qwen/qwen3.6-35b-a3b</span></td>
-            <td><span class="pill m">off</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:15%;background:var(--amber)"></b></i><span class="pill a">11,1%</span></span></td>
-            <td class="r">88,9%</td><td class="r">0,950</td><td class="r">100%</td><td class="r"><b>3,4</b></td><td class="r">0,050</td><td class="r">12 103</td>
-            <td><span class="pill d">Запасная (off)</span></td>
-          </tr>
-          <tr>
-            <td><span class="mono">google/gemma-4-26b-a4b-it</span></td>
-            <td><span class="pill m">low / on</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:15%;background:var(--amber)"></b></i><span class="pill a">11,1%</span></span></td>
-            <td class="r">83–89%</td><td class="r">0,90–0,95</td><td class="r">94–100%</td><td class="r">13,5–14,8</td><td class="r">0,066–0,079</td><td class="r">7 627–9 079</td>
-            <td>хуже, чем off</td>
-          </tr>
-          <tr class="bad">
-            <td><span class="mono">moonshotai/kimi-k2.6</span></td>
-            <td><span class="pill r">off / low / on</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:20%;background:var(--red)"></b></i><span class="pill r">11–17%</span></span></td>
-            <td class="r">83–89%</td><td class="r">0,96</td><td class="r">100%</td><td class="r">8,3–39,6</td><td class="r">0,341–0,980</td><td class="r">612–1 760</td>
-            <td>в 7–25× дороже</td>
-          </tr>
-          <tr class="bad">
-            <td><span class="mono">qwen/qwen3-vl-30b-a3b</span></td>
-            <td><span class="pill m">off</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:31%;background:var(--red)"></b></i><span class="pill r">22,2%</span></span></td>
-            <td class="r">77,8%</td><td class="r">0,875</td><td class="r">100%</td><td class="r">11,5</td><td class="r">0,050</td><td class="r">12 002</td>
-            <td>только OCR PDF</td>
-          </tr>
-          <tr class="bad">
-            <td><span class="mono">qwen/qwen3.6-35b-a3b</span></td>
-            <td><span class="pill r">low / on</span></td>
-            <td><span class="bar-inline"><i style="width:86px"><b style="width:72%;background:var(--red)"></b></i><span class="pill r">28–72%</span></span></td>
-            <td class="r">22–72%</td><td class="r">0,27–0,89</td><td class="r">28–94%</td><td class="r">26,1–32,4</td><td class="r">0,058–0,263</td><td class="r">—</td>
-            <td>запрещён в коде</td>
-          </tr>
-        </tbody>
-      </table>
+  <div class="top"><span class="tag">Замеры · галлюцинации</span><span class="num">1 / 3</span></div>
+  <h1 class="fit">Alfi-FaithBench: галлюцинации по 6 моделям (off / low / on)</h1>
+  <p class="lead"><b>18 кейсов-ловушек</b> в 6 категориях: выдуманные цифры, перенос роста рынка, конфликт источников, атрибуция банка, смешение юрлиц, неполные данные. Двойная проверка: детерминистика + судья другого семейства.</p>
+  <span class="corner" data-cat="tax"></span>
+  <div class="body b08">
+    <div class="card faith">
+      <div class="head-row">
+        <div><div class="k">Доля галлюцинаций на 18 ловушках · меньше = лучше</div></div>
+        <div class="legend"><span><i style="background:var(--dark)"></i>off</span><span><i style="background:var(--gray)"></i>low</span><span><i style="background:var(--red)"></i>on</span></div>
+      </div>
+      <div class="chart" id="faith-chart"></div>
+    </div>
+    <div class="col">
+      <div class="card budget">
+        <div class="k">Сколько вызовов влезает в 600 ₽/день</div>
+        <div class="brows">
+          <div class="brow best"><span class="nm">gemma-4-26b<small>off</small></span><span class="val">32 564</span><div class="trk"><span style="width:100%"></span></div><div class="meta"><span><b>0,018 ₽</b>/выз</span><span><b>3,4 с</b></span><span>разметка RSS</span></div></div>
+          <div class="brow"><span class="nm">glm-5.3-flash<small>low</small></span><span class="val">15 656</span><div class="trk"><span style="width:48.08%"></span></div><div class="meta"><span><b>0,038 ₽</b>/выз</span><span><b>5,6 с</b></span><span>критик</span></div></div>
+          <div class="brow"><span class="nm">qwen3.6-35b<small>off</small></span><span class="val">12 103</span><div class="trk"><span style="width:37.17%"></span></div><div class="meta"><span><b>0,050 ₽</b>/выз</span><span><b>3,4 с</b></span><span>запасная</span></div></div>
+          <div class="brow"><span class="nm">deepseek-v4.1-flash<small>off</small></span><span class="val">10 472</span><div class="trk"><span style="width:32.16%"></span></div><div class="meta"><span><b>0,057 ₽</b>/выз</span><span><b>4,9 с</b></span><span>основной агент</span></div></div>
+          <div class="brow"><span class="nm">deepseek-v4.1-flash<small>on</small></span><span class="val">5 536</span><div class="trk"><span style="width:17%"></span></div><div class="meta"><span><b>0,108 ₽</b>/выз</span><span><b>10,1 с</b></span><span>сложный аудит</span></div></div>
+          <div class="brow weak"><span class="nm">kimi-k2.6<small>off</small></span><span class="val">1 760</span><div class="trk"><span style="width:5.4%"></span></div><div class="meta"><span><b>0,341 ₽</b>/выз</span><span><b>8,3 с</b></span><span>не берём</span></div></div>
+        </div>
+      </div>
+      <div class="card dark insight">
+        <div class="k">Главный вывод</div>
+        <p>Мышление помогает <b>только DeepSeek</b>: 5,6% → <em>0%</em>, у остальных low/on не лучше off. <b>GLM-5.3 в off/low</b> не ошибся ни разу за 0,04 ₽ и стал лучшим критиком.</p>
+      </div>
     </div>
     <div class="kpis">
-      <div class="kpi gr"><b>0,0%</b><span>галлюцинаций у glm-5.3-flash (off/low) и deepseek-v4.1-flash (on) на 18 ловушках</span></div>
-      <div class="kpi hl"><b>32 564</b><span>вызова gemma-4-26b (off) в 600 ₽/день — 0,018 ₽/выз и 3,4 с для разметки RSS</span></div>
-      <div class="kpi"><b>×7,6</b><span>дороже kimi-k2.6 (0,341 ₽) при худшем прохождении ловушек (83% против 100%)</span></div>
-      <div class="kpi dark"><b>Только DeepSeek</b><span>получает пользу от reasoning; на Qwen3.6 low ломает 72% JSON и выключен в llm.py</span></div>
+      <div class="kpi gr"><b>0,0%</b><span>галлюцинаций у glm-5.3 (off/low)<br>и deepseek-v4.1 (on)</span></div>
+      <div class="kpi hl"><b>32 564</b><span>вызова gemma-4 (off) в 600 ₽/день<br>по 0,018 ₽ за 3,4 с</span></div>
+      <div class="kpi"><b>×7,6</b><span>дороже kimi-k2.6 (0,341 ₽),<br>а ловушки лишь 83% против 100%</span></div>
+      <div class="kpi dark"><b>288</b><span>прогонов: 16 конфигураций × 18<br>ловушек, кросс-судья</span></div>
     </div>
   </div>
 </section>
 
-<!-- 2. End-to-End бенчмарк агента: модели, режимы мышления и абляция -->
+<!-- 09. Сквозной агент: цена, скорость, качество -->
 <section class="slide" data-name="09-bench-e2e">
-  <div class="top"><span class="tag">Замеры · E2E пайплайн</span><span class="num">2 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
-  <h1>Полный агент: выбор быстрой дешёвой модели и режимов мышления</h1>
-  <p class="lead">75 полных прогонов (15 вариантов × 5 разноотраслевых событий с реальной БЗ Альфа-Банка). Сравнили все 5 текстовых моделей, режимы мышления <b>off / selective low / on</b> и одиночные вызовы.</p>
-  <div class="body">
-    <div class="cols2">
-      <div class="card" style="display:flex; flex-direction:column; gap:14px; padding:22px 24px">
-        <div class="k" style="margin-bottom:4px">Сравнение моделей, low reasoning effort и абляции (n = 5 событий)</div>
-        <table class="tbl" style="flex:1">
-          <thead>
-            <tr>
-              <th>Вариант (агент)</th>
-              <th class="r">Прав ↑</th>
-              <th class="r">Цифр ↑</th>
-              <th class="r">Крит ↑</th>
-              <th class="r">Ссыл</th>
-              <th class="r">Сек</th>
-              <th class="r">₽</th>
-              <th class="r">Шт/600 ₽</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="win">
-              <td><b>deepseek-v4.1-flash (off)</b></td>
-              <td class="r">94,1%</td><td class="r">80%</td><td class="r"><b>0,927</b></td><td class="r">10,2 / 25</td><td class="r"><b>51,6</b></td><td class="r"><b>0,86</b></td><td class="r"><b>698</b></td>
-            </tr>
-            <tr class="win">
-              <td><b>deepseek (selective low)</b></td>
-              <td class="r"><b>96,1%</b></td><td class="r"><b>100%</b></td><td class="r">0,838</td><td class="r"><b>10,8 / 27</b></td><td class="r">77,9</td><td class="r">1,14</td><td class="r">527</td>
-            </tr>
-            <tr>
-              <td>qwen3.6-35b-a3b (off)</td>
-              <td class="r"><b>96,1%</b></td><td class="r"><b>100%</b></td><td class="r">0,700</td><td class="r">6,4 / 29</td><td class="r">44,9</td><td class="r">0,78</td><td class="r">766</td>
-            </tr>
-            <tr>
-              <td>gemma-4-26b (off)</td>
-              <td class="r">92,2%</td><td class="r"><b>100%</b></td><td class="r">0,647</td><td class="r">5,8 / 27</td><td class="r"><b>33,4</b></td><td class="r"><b>0,45</b></td><td class="r"><b>1 333</b></td>
-            </tr>
-            <tr>
-              <td>gemma-4-26b (low synth)</td>
-              <td class="r">94,1%</td><td class="r"><b>100%</b></td><td class="r">0,802</td><td class="r">5,6 / 28</td><td class="r">96,4</td><td class="r">0,79</td><td class="r">757</td>
-            </tr>
-            <tr>
-              <td>glm-5.3-flash (off)</td>
-              <td class="r">88,2%</td><td class="r">40%</td><td class="r">0,697</td><td class="r">10,2 / 31</td><td class="r">96,9</td><td class="r">0,81</td><td class="r">736</td>
-            </tr>
-            <tr>
-              <td>hybrid: glm + ds (think)</td>
-              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,776</td><td class="r">9,8 / 27</td><td class="r">159,0</td><td class="r">1,74</td><td class="r">344</td>
-            </tr>
-            <tr class="bad">
-              <td>deepseek (full think:on)</td>
-              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,690</td><td class="r">12,6 / 21</td><td class="r">215,4</td><td class="r">2,42</td><td class="r">248</td>
-            </tr>
-            <tr class="bad">
-              <td>kimi-k2.6 (off)</td>
-              <td class="r">90,2%</td><td class="r">0%</td><td class="r">0,620</td><td class="r">11,6 / 29</td><td class="r">115,8</td><td class="r">4,92</td><td class="r">121</td>
-            </tr>
-            <tr>
-              <td><i>1 вызов + банк (single_rag)</i></td>
-              <td class="r">88,2%</td><td class="r">100%</td><td class="r">0,740</td><td class="r">8,2 / 8</td><td class="r">24,8</td><td class="r">0,35</td><td class="r">1 700</td>
-            </tr>
-            <tr>
-              <td><i>1 вызов без базы (bare)</i></td>
-              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,722</td><td class="r">5,2 / 5</td><td class="r">22,9</td><td class="r">0,28</td><td class="r">2 120</td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="note">«Ссыл»: процитированные / все сохранённые с URL. У single-вызовов нет поиска доп. новостей, контрагентов, группы и петли доработки.</p>
+  <div class="top"><span class="tag">Замеры · сквозной агент</span><span class="num">2 / 3</span></div>
+  <h1 class="fit">Сквозной агент: цена, скорость и качество (75 прогонов)</h1>
+  <p class="lead"><b>15 вариантов × 5 событий</b> из разных отраслей на реальной базе знаний Альфа-Банка: 5 моделей, режимы мышления <span style="white-space:nowrap">off / selective low / on</span> и одиночные вызовы для сравнения.</p>
+  <span class="corner" data-cat="money"></span>
+  <div class="body b09">
+    <div class="col">
+      <div class="card scatter">
+        <div class="head-row">
+          <div class="k">Время разбора против цены · каждая точка = 5 прогонов · обе оси логарифмические</div>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--green)"></i>цифры 100%</span>
+          <span><i class="dot" style="background:var(--amber)"></i>цифры 80%</span>
+          <span><i class="dot" style="background:var(--red)"></i>цифры ≤ 60%</span>
+          <span><i class="dot" style="background:#fff;border:2.5px solid var(--ink)"></i>размер = оценка критика</span>
+          <span><i style="background:var(--green-soft);border:1.5px dashed var(--green)"></i>зона оптимума</span>
+        </div>
+        <div class="chart" id="e2e-chart"></div>
       </div>
-
-      <div style="display:flex; flex-direction:column; gap:14px">
-        <div class="card dark" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding:26px 28px">
-          <div class="k">Итоговый выбор стека моделей</div>
-          <div class="list" style="gap:18px; flex:1; justify-content:center">
-            <div class="li"><i>1</i><div><b>Агент и чат — deepseek-v4.1-flash (off):</b> лучший баланс цены (0,86 ₽), скорости (51,6 с), глубины цитирования (10,2 сноски) и оценки критика (0,927). Вмещает <b>698 разборов в 600 ₽/день</b>.</div></div>
-            <div class="li"><i>2</i><div><b>Режим повышенной строгости — selective low (synth+repair):</b> закрывает 100% проверок цифр и 96,1% правил за <b>77,9 с и 1,14 ₽</b> — в <b>2,8× быстрее</b> и в <b>2,1× дешевле</b> полного <code>think:on</code> (215 с / 2,42 ₽).</div></div>
-            <div class="li"><i>3</i><div><b>Критик — glm-5.3-flash (off):</b> 0,0% галлюцинаций в FaithBench и 0,044 ₽/вызов. Как основной агент длинного JSON она вдвое медленнее (96,9 с), но как аудитор идеальна.</div></div>
-            <div class="li"><i>4</i><div><b>Разметка — gemma-4-26b (off):</b> 0,018 ₽ и 3,4 с; <b>Запасная — qwen3.6-35b (off):</b> 44,9 с и 100% цифр.</div></div>
+      <div class="card vs">
+        <div class="k">Агент против одного вызова модели</div>
+        <div class="vs-grid">
+          <div>
+            <h4>Источников в разборе</h4>
+            <div class="vb agent"><small>агент</small><i><span style="width:100%"></span></i><em>25,4</em></div>
+            <div class="vb"><small>1 + банк</small><i><span style="width:32.3%"></span></i><em>8,2</em></div>
+            <div class="vb"><small>1 без базы</small><i><span style="width:20.5%"></span></i><em>5,2</em></div>
+          </div>
+          <div>
+            <h4>Правила <span>· из 51</span></h4>
+            <div class="vb agent"><small>агент</small><i><span style="width:94.1%"></span></i><em>94,1%</em></div>
+            <div class="vb"><small>1 + банк</small><i><span style="width:88.2%"></span></i><em>88,2%</em></div>
+            <div class="vb"><small>1 без базы</small><i><span style="width:96.1%"></span></i><em>96,1%</em></div>
+          </div>
+          <div>
+            <h4>Оценка критика</h4>
+            <div class="vb agent"><small>агент</small><i><span style="width:92.7%"></span></i><em>0,927</em></div>
+            <div class="vb"><small>1 + банк</small><i><span style="width:74%"></span></i><em>0,740</em></div>
+            <div class="vb"><small>1 без базы</small><i><span style="width:72.2%"></span></i><em>0,722</em></div>
           </div>
         </div>
-        <div class="kpis c3">
-          <div class="kpi hl"><b>698</b><span>разборов в 600 ₽/день на deepseek (off)</span></div>
-          <div class="kpi gr"><b>×2,8</b><span>быстрее selective low vs full think:on</span></div>
-          <div class="kpi"><b>×5,7</b><span>дешевле kimi-k2.6 (0,86 vs 4,92 ₽)</span></div>
+        <p class="vs-note">Один вызов формально проходит правила, но в <b>3–5 раз беднее источниками</b>: нет поиска доп. новостей, контрагентов, группы и петли доработки.</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card dark stack">
+        <div class="k">Выбранный стек · бюджет 600 ₽/день</div>
+        <div class="roles">
+          <div class="role main"><i>1</i><div>
+            <div class="rn">Агент и чат</div>
+            <div class="rm">deepseek-v4.1-flash<small>off</small></div>
+            <div class="rf"><span>51,6 с</span><span>0,86 ₽</span><span class="hot">698 шт/день</span><span>критик 0,927</span></div>
+            <div class="opt">
+              <div class="ot">Опция строгости: <b>selective low</b> · 100% цифр</div>
+              <div class="ob fast"><small>selective low</small><i><span style="width:36.2%"></span></i><em>77,9 с · 1,14 ₽</em></div>
+              <div class="ob"><small>full think</small><i><span style="width:100%"></span></i><em>215 с · 2,42 ₽</em></div>
+            </div>
+          </div></div>
+          <div class="role"><i>2</i><div>
+            <div class="rn">Критик</div>
+            <div class="rm">glm-5.3-flash<small>off</small></div>
+            <div class="rd">проверяет каждый разбор по 6 осям</div>
+            <div class="rf"><span class="ok">0% галлюцинаций</span><span>0,044 ₽/выз</span></div>
+          </div></div>
+          <div class="role"><i>3</i><div>
+            <div class="rn">Разметка новостей</div>
+            <div class="rm">gemma-4-26b<small>off</small></div>
+            <div class="rd">триаж RSS: отрасль, тип и значимость новости</div>
+            <div class="rf"><span>0,018 ₽/выз</span><span>3,4 с</span></div>
+          </div></div>
+          <div class="role"><i>4</i><div>
+            <div class="rn">Запасная модель</div>
+            <div class="rm">qwen3.6-35b<small>off</small></div>
+            <div class="rd">подхватывает, если основная модель недоступна</div>
+            <div class="rf"><span>44,9 с</span><span class="ok">100% цифр</span></div>
+          </div></div>
         </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi hl"><b>698</b><span>разборов в день<br>на 600 ₽</span></div>
+        <div class="kpi gr"><b>×2,8</b><span>быстрее selective<br>low, чем full think</span></div>
+        <div class="kpi"><b>×5,7</b><span>дешевле Kimi:<br>0,86 против 4,92 ₽</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 3. Ранжирование ленты: ДО (отбор) vs ПОСЛЕ (финал) -->
+<!-- 10. Ранжирование ленты: ДО (отбор) и ПОСЛЕ (финал) -->
 <section class="slide" data-name="10-bench-ranking">
-  <div class="top"><span class="tag">Замеры · ранжирование</span><span class="num">3 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
+  <div class="top"><span class="tag">Замеры · ранжирование</span><span class="num">3 / 3</span></div>
   <h1>Калибровка весов ленты: шум упал с 54% до 3,3%</h1>
-  <p class="lead">Воспроизводимый эталон: <b>80 размеченных пар</b> (5 компаний разных отраслей × 16 разнородных новостей: прямые отраслевые, макро, смежные, ретро-статистика, биржевой дайджест, лайфстайл) при пороге ленты 0,16.</p>
-  <div class="body">
-    <div class="cols2">
-      <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; padding:26px 30px">
-        <div class="k">Метрики выдачи ДО (отборочная формула) и ПОСЛЕ (финал)</div>
-        <div class="mrows" style="gap:24px">
-          <div class="mrow">
-            <div class="lbl">Precision@5<span class="sub">доля важных (rel ≥ 2) в топ-5</span></div>
-            <div class="pairbar">
-              <div class="pb"><small>ДО</small><i><span style="width:76%;background:#B9BCC3"></span></i><em>76,0%</em></div>
-              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:92%;background:var(--red)"></span></i><em>92,0%</em></div>
-            </div>
-            <div class="delta pos">+16,0 п.п.</div>
-          </div>
-          <div class="mrow">
-            <div class="lbl">Шум в ленте ↓<span class="sub">FeedNoise (rel = 0 выше 0,16)</span></div>
-            <div class="pairbar">
-              <div class="pb"><small>ДО</small><i><span style="width:54%;background:#B9BCC3"></span></i><em>54,0%</em></div>
-              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:3.3%;background:var(--green)"></span></i><em>3,3%</em></div>
-            </div>
-            <div class="delta pos">-50,7 п.п.</div>
-          </div>
-          <div class="mrow">
-            <div class="lbl">Шум в топ-5 ↓<span class="sub">Noise@5 (нерелевантные в топ-5)</span></div>
-            <div class="pairbar">
-              <div class="pb"><small>ДО</small><i><span style="width:16%;background:#B9BCC3"></span></i><em>4,0%</em></div>
-              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:1%;background:var(--green)"></span></i><em>0,0%</em></div>
-            </div>
-            <div class="delta pos">-4,0 п.п.</div>
-          </div>
-          <div class="mrow">
-            <div class="lbl">NDCG@5<span class="sub">качество порядка первых 5</span></div>
-            <div class="pairbar">
-              <div class="pb"><small>ДО</small><i><span style="width:95.5%;background:#B9BCC3"></span></i><em>0,955</em></div>
-              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:97.0%;background:var(--red)"></span></i><em>0,970</em></div>
-            </div>
-            <div class="delta pos">+0,015</div>
-          </div>
-          <div class="mrow">
-            <div class="lbl">Diversity@5<span class="sub">различие лент разных компаний</span></div>
-            <div class="pairbar">
-              <div class="pb"><small>ДО</small><i><span style="width:71.0%;background:#B9BCC3"></span></i><em>0,710</em></div>
-              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:73.6%;background:var(--ink)"></span></i><em>0,736</em></div>
-            </div>
-            <div class="delta pos">+0,025</div>
-          </div>
+  <p class="lead">Воспроизводимый эталон: <b>80 размеченных пар</b>, 5 компаний разных отраслей × 16 разнородных новостей (отраслевые, макро, смежные, ретро, биржевые сводки, лайфстайл), порог ленты 0,16.</p>
+  <span class="corner" data-cat="sales"></span>
+  <div class="body b10">
+    <div class="card rank">
+      <div class="hero">
+        <div>
+          <div class="k">Шум в ленте · FeedNoise</div>
+          <div class="hero-num"><span class="was">54,0%</span><span class="arr">→</span><span class="now">3,3%</span><span class="pill g">−50,7 п.п.</span></div>
         </div>
-        <p class="note">HitRate@3 = 1,000 и MRR = 1,000 в обеих версиях: критическое отраслевое событие всегда на 1-м месте.</p>
+        <div class="hero-side">средняя лента: <b>13,2 → 4,8</b> новости<br>главное событие на 1-м месте: <b>100%</b></div>
       </div>
-
-      <div style="display:flex; flex-direction:column; gap:14px">
-        <div class="card" style="flex:1">
-          <div class="k">Какие перекосы нашли и исправили на данных</div>
-          <div class="list">
-            <div class="li"><i>1</i><div><b>Чужие отраслевые решения регулятора:</b> раньше акциз на напитки или лимиты ипотеки пробивались в топ-5 топливщика и зернотрейдера как «макро». Теперь при явном чужом секторе срабатывает штраф масштаба (×0,25 / ×0,20).</div></div>
-            <div class="li"><i>2</i><div><b>Узкий ОКВЭД вместо общей отрасли:</b> добавлен бонус <code>subsector (+0,28)</code> — зернотрейдеру события про зерно и фрахт важнее заметки про картофель в «Магните».</div></div>
-            <div class="li"><i>3</i><div><b>Ненасыщаемый фактор и столичное гео:</b> убывающая сумма факторов убрала завышение биржевых сводок, а Москва/СПб дают мягкий бонус (+0,06) только при отраслевой связи.</div></div>
-            <div class="li"><i>4</i><div><b>Шкала значимости и ретро-новости:</b> расширен диапазон значимости (0,45–1,60) и снижен вес статистики за прошлый год.</div></div>
-          </div>
+      <div class="matrix">
+        <div class="mx-row mx-head"><span>Компания</span><span>ДО · отборочная формула</span><span></span><span class="r">ПОСЛЕ · финал</span></div>
+        <div class="mx-body" id="rank-matrix"></div>
+        <div class="mx-foot legend">
+          <span><i class="dot" style="background:var(--ink)"></i>новость по делу</span>
+          <span><i class="dot" style="background:#fff;border:2.5px solid var(--red)"></i>шум: нерелевантная новость в ленте</span>
+          <span>итого: <b style="color:var(--ink);margin-left:4px">36 из 66 → 1 из 24</b></span>
         </div>
-        <div class="verdict"><b>Результат.</b> Средний размер ленты очистился от случайных совпадений: в выдаче остаются только прямые отраслевые и реальные макрособытия (ЦБ, налоги), а мусор в топ-5 сведён к <b>0,0%</b>.</div>
+      </div>
+      <div class="mtiles">
+        <div class="mt"><div class="mh"><b>Precision@5</b><span class="pill g">+16 п.п.</span></div><div class="mv"><s>76%</s><i>→</i><strong>92%</strong></div><div class="tr"><span class="w" style="--v:76%"></span><span class="a" style="--v:92%"></span></div><small>важные в топ-5</small></div>
+        <div class="mt"><div class="mh"><b>Noise@5</b><span class="pill g">−4 п.п.</span></div><div class="mv"><s>4%</s><i>→</i><strong>0%</strong></div><div class="tr"><span class="w" style="--v:4%"></span><span class="a" style="--v:0%"></span></div><small>мусор в топ-5</small></div>
+        <div class="mt"><div class="mh"><b>NDCG@5</b><span class="pill g">+0,015</span></div><div class="mv"><s>0,955</s><i>→</i><strong>0,970</strong></div><div class="tr"><span class="w" style="--v:95.5%"></span><span class="a" style="--v:97%"></span></div><small>порядок в топ-5</small></div>
+        <div class="mt"><div class="mh"><b>Diversity@5</b><span class="pill g">+0,025</span></div><div class="mv"><s>0,710</s><i>→</i><strong>0,736</strong></div><div class="tr"><span class="w" style="--v:71%"></span><span class="a" style="--v:73.6%"></span></div><small>ленты не похожи</small></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card fixes">
+        <div class="k">Что починили на данных</div>
+        <div class="fx">
+          <div class="fi"><i>1</i><b>Чужие решения регулятора</b><span>Акциз на напитки больше не лезет в топ топливщику: штраф за чужой сектор <code>×0,25</code> / <code>×0,20</code></span></div>
+          <div class="fi"><i>2</i><b>Узкий ОКВЭД важнее отрасли</b><span>Бонус <code>subsector +0,28</code>: зерно и фрахт для зернотрейдера выше картофеля в «Магните»</span></div>
+          <div class="fi"><i>3</i><b>Факторы с убывающим вкладом</b><span>Биржевые сводки не набирают балл числом совпадений, столицы дают мягкий <code>+0,06</code></span></div>
+          <div class="fi"><i>4</i><b>Шкала значимости и ретро</b><span>Значимость в диапазоне <code>0,45–1,60</code>, статистика прошлых лет весит меньше</span></div>
+        </div>
+      </div>
+      <div class="card dark verdict">
+        <div class="k">Итог</div>
+        <p>Лента сжалась с <b>13,2 до 4,8</b> новости: остались прямые отраслевые и реальные макрособытия (ЦБ, налоги), мусор в топ-5 сведён к <b>0%</b>.</p>
+        <div class="vchips"><span><b>1,000</b> HitRate@3</span><span><b>1,000</b> MRR</span><span>в обеих версиях</span></div>
       </div>
     </div>
   </div>
 </section>
 
+<script src="../../web/js/mascot.js"></script>
+<script src="../../web/js/mascot-reference.js"></script>
+<script>
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  function svgNode(tag, attrs, text) {
+    const node = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs || {}).forEach(([key, value]) => node.setAttribute(key, value));
+    if (text !== undefined) {
+      node.textContent = text;
+    }
+    return node;
+  }
+
+  function makeSvg(host) {
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    const svg = svgNode('svg', { width, height, viewBox: `0 0 ${width} ${height}` });
+    host.appendChild(svg);
+    return { svg, width, height };
+  }
+
+  function fmt(value, digits) {
+    return value.toFixed(digits).replace('.', ',');
+  }
+
+  const COLORS = {
+    ink: '#0B0B0C',
+    dark: '#151517',
+    gray: '#A3A6AD',
+    red: '#EF3124',
+    redInk: '#C21F14',
+    redSoft: '#FDECEA',
+    green: '#2E8A3A',
+    greenSoft: '#E6F3E8',
+    amber: '#B87500',
+    muted: '#6D7076',
+    grid: '#E8EAED',
+  };
+
+  /* ---------- 08: галлюцинации по моделям, данные faithbench.json ---------- */
+  const FAITH = [
+    { model: 'glm-5.3-flash', vendor: 'Z.ai · критик', off: 0.0, low: 0.0, on: 5.56 },
+    { model: 'deepseek-v4.1-flash', vendor: 'DeepSeek · агент', off: 5.56, low: 5.56, on: 0.0 },
+    { model: 'gemma-4-26b', vendor: 'Google · разметка', off: 5.56, low: 11.11, on: 11.11 },
+    { model: 'qwen3.6-35b', vendor: 'Qwen · запасная (off)', off: 11.11, low: 72.22, on: 27.78, alert: 'low' },
+    { model: 'kimi-k2.6', vendor: 'Moonshot · дорого', off: 11.11, low: 11.11, on: 16.67 },
+    { model: 'qwen3-vl-30b', vendor: 'Qwen · только OCR PDF', off: 22.22, low: null, on: null },
+  ];
+
+  function drawFaith(host) {
+    const { svg, width, height } = makeSvg(host);
+    const defs = svgNode('defs');
+    const hatch = svgNode('pattern', { id: 'hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    hatch.appendChild(svgNode('rect', { width: 8, height: 8, fill: COLORS.red }));
+    hatch.appendChild(svgNode('rect', { width: 3, height: 8, fill: '#B81C10' }));
+    defs.appendChild(hatch);
+    svg.appendChild(defs);
+
+    const plotLeft = 248;
+    const plotRight = width - 8;
+    const axisBottom = height - 26;
+    const plotTop = 18;
+    const maxValue = 100;
+    const xOf = (value) => plotLeft + (value / maxValue) * (plotRight - plotLeft);
+    const groupHeight = (axisBottom - plotTop) / FAITH.length;
+    const barHeight = 15;
+    const barGap = 6;
+
+    // Сетка и шкала
+    [0, 20, 40, 60, 80, 100].forEach((tick) => {
+      const x = xOf(tick);
+      svg.appendChild(svgNode('line', { x1: x, x2: x, y1: plotTop - 6, y2: axisBottom, stroke: tick === 0 ? '#C9CBD0' : COLORS.grid, 'stroke-width': tick === 0 ? 1.5 : 1, 'stroke-dasharray': tick === 0 ? '' : '3 4' }));
+      svg.appendChild(svgNode('text', { x, y: axisBottom + 18, 'text-anchor': tick === 100 ? 'end' : 'middle', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, tick + '%'));
+    });
+
+    FAITH.forEach((row, index) => {
+      const groupTop = plotTop + index * groupHeight;
+      const stackHeight = barHeight * 3 + barGap * 2;
+      const firstBarY = groupTop + (groupHeight - stackHeight) / 2;
+
+      if (index > 0) {
+        svg.appendChild(svgNode('line', { x1: 0, x2: plotRight, y1: groupTop, y2: groupTop, stroke: '#EEF0F2', 'stroke-width': 1 }));
+      }
+
+      const centerY = groupTop + groupHeight / 2;
+      svg.appendChild(svgNode('text', { x: 0, y: centerY - 3, 'font-size': 16.5, 'font-weight': 750, fill: COLORS.ink, class: 'lbl' }, row.model));
+      svg.appendChild(svgNode('text', { x: 0, y: centerY + 16, 'font-size': 12.5, 'font-weight': 600, fill: COLORS.muted, class: 'lbl' }, row.vendor));
+
+      ['off', 'low', 'on'].forEach((mode, modeIndex) => {
+        const y = firstBarY + modeIndex * (barHeight + barGap);
+        const value = row[mode];
+        const midY = y + barHeight / 2 + 4.5;
+        if (value !== null) {
+          svg.appendChild(svgNode('text', { x: plotLeft - 12, y: midY, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 650, fill: COLORS.muted, 'font-family': 'ui-monospace, Menlo, monospace', class: 'lbl' }, mode));
+        }
+
+        if (value === null) {
+          // Одна подпись на оба незамеренных режима (low и on)
+          if (mode === 'low') {
+            const noteY = y + barHeight + barGap / 2 + 4.5;
+            svg.appendChild(svgNode('text', { x: plotLeft + 12, y: noteY, 'font-size': 12.5, 'font-weight': 600, fill: '#A3A6AD', class: 'lbl' }, 'low / on не замеряли: модель только для OCR PDF'));
+          }
+          return;
+        }
+
+        const isAlert = row.alert === mode;
+        const fill = isAlert ? 'url(#hatch)' : { off: COLORS.dark, low: COLORS.gray, on: COLORS.red }[mode];
+        const label = fmt(value, 1) + '%';
+
+        if (value === 0) {
+          // Ноль: точка на оси и зелёный бейдж
+          svg.appendChild(svgNode('circle', { cx: plotLeft + 3, cy: y + barHeight / 2, r: 5, fill: COLORS.green }));
+          const pill = svgNode('g', { class: 'lbl' });
+          pill.appendChild(svgNode('rect', { x: plotLeft + 14, y: y - 2, width: 40, height: barHeight + 4, rx: 6, fill: COLORS.greenSoft }));
+          pill.appendChild(svgNode('text', { x: plotLeft + 34, y: midY, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 800, fill: COLORS.green }, '0%'));
+          svg.appendChild(pill);
+          return;
+        }
+
+        const barEnd = xOf(value);
+        svg.appendChild(svgNode('rect', { x: plotLeft, y, width: barEnd - plotLeft, height: barHeight, rx: 5, fill }));
+
+        if (isAlert) {
+          svg.appendChild(svgNode('text', { x: barEnd - 9, y: midY, 'text-anchor': 'end', 'font-size': 13, 'font-weight': 800, fill: '#fff', class: 'lbl' }, label));
+          const alertGroup = svgNode('g', { class: 'lbl' });
+          const alertX = barEnd + 10;
+          alertGroup.appendChild(svgNode('rect', { x: alertX, y: y - 4, width: plotRight - alertX, height: barHeight + 8, rx: 7, fill: COLORS.redSoft }));
+          alertGroup.appendChild(svgNode('text', { x: alertX + (plotRight - alertX) / 2, y: midY, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 800, fill: COLORS.redInk }, 'JSON цел лишь в 28%'));
+          svg.appendChild(alertGroup);
+          return;
+        }
+
+        svg.appendChild(svgNode('text', { x: barEnd + 8, y: midY, 'font-size': 13.5, 'font-weight': 750, fill: COLORS.ink, class: 'lbl' }, label));
+      });
+    });
+  }
+
+  /* ---------- 09: цена против времени, данные results.json ---------- */
+  const E2E = [
+    { name: 'deepseek off', rub: 0.859, sec: 51.6, critic: 0.927, numbers: 0.8, chosen: true, label: { dx: 26, dy: 8, anchor: 'start' }, sub: '0,86 ₽ · 51,6 с' },
+    { name: 'qwen3.6 off', rub: 0.782, sec: 44.9, critic: 0.700, numbers: 1.0, label: { dx: -14, dy: 10, anchor: 'end' } },
+    { name: 'gemma off', rub: 0.45, sec: 33.4, critic: 0.647, numbers: 1.0, label: { dx: 0, dy: -21, anchor: 'middle' } },
+    { name: 'glm off', rub: 0.815, sec: 96.9, critic: 0.697, numbers: 0.4, label: { dx: 18, dy: -20, anchor: 'start' } },
+    { name: 'kimi off · 4,92 ₽', rub: 4.923, sec: 115.8, critic: 0.62, numbers: 0.0, label: { dx: 14, dy: -24, anchor: 'end' } },
+    { name: 'selective low', rub: 1.138, sec: 77.9, critic: 0.838, numbers: 1.0, chosen: true, label: { dx: 40, dy: 10, anchor: 'start' }, sub: '1,14 ₽ · 77,9 с' },
+    { name: 'low на всё', rub: 1.191, sec: 82.8, critic: 0.868, numbers: 1.0, label: { dx: 20, dy: -20, anchor: 'start' } },
+    { name: 'gemma low-synth', rub: 0.792, sec: 96.4, critic: 0.802, numbers: 1.0, label: { dx: -18, dy: -18, anchor: 'end' } },
+    { name: 'glm low-synth', rub: 1.462, sec: 126.4, critic: 0.842, numbers: 0.6, label: { dx: 20, dy: 2, anchor: 'start' } },
+    { name: 'think sel. critic', rub: 2.201, sec: 243.1, critic: 0.631, numbers: 0.8, label: { dx: -13, dy: -3, anchor: 'end' } },
+    { name: 'think sel. synth', rub: 2.903, sec: 259.8, critic: 0.627, numbers: 0.8, label: { dx: 14, dy: -4, anchor: 'start' } },
+    { name: 'full think:on · 2,42 ₽', rub: 2.416, sec: 215.4, critic: 0.690, numbers: 1.0, label: { dx: 18, dy: 7, anchor: 'start' } },
+    { name: 'hybrid glm+ds', rub: 1.742, sec: 159.0, critic: 0.776, numbers: 1.0, label: { dx: -16, dy: -12, anchor: 'end' } },
+    { name: '1 вызов + банк', rub: 0.353, sec: 24.8, critic: 0.740, numbers: 1.0, label: { dx: 17, dy: 4, anchor: 'start' } },
+    { name: '1 вызов без базы', rub: 0.283, sec: 22.9, critic: 0.722, numbers: 1.0, label: { dx: -30, dy: -38, anchor: 'start' } },
+  ];
+
+  function drawE2E(host) {
+    const { svg, width, height } = makeSvg(host);
+    const plotLeft = 52;
+    const plotRight = width - 10;
+    const plotTop = 14;
+    const plotBottom = height - 40;
+    // Обе оси логарифмические: иначе кластер 0,3-1,2 ₽ и 23-97 с слипается
+    const rubMin = Math.log10(0.24);
+    const rubMax = Math.log10(5.6);
+    const secMin = Math.log10(20);
+    const secMax = Math.log10(320);
+    const xOf = (rub) => plotLeft + (Math.log10(rub) - rubMin) / (rubMax - rubMin) * (plotRight - plotLeft);
+    const yOf = (sec) => plotBottom - (Math.log10(sec) - secMin) / (secMax - secMin) * (plotBottom - plotTop);
+
+    // Зоны: оптимум (дёшево и быстро) и дорогая зона
+    const optimumRight = xOf(1.25);
+    const optimumTop = yOf(90);
+    const expensiveLeft = xOf(2.0);
+    svg.appendChild(svgNode('rect', { x: expensiveLeft, y: plotTop, width: plotRight - expensiveLeft, height: plotBottom - plotTop, rx: 12, fill: 'rgba(239,49,36,.06)' }));
+    svg.appendChild(svgNode('rect', { x: plotLeft, y: optimumTop, width: optimumRight - plotLeft, height: plotBottom - optimumTop, rx: 12, fill: 'rgba(46,138,58,.08)', stroke: COLORS.green, 'stroke-width': 1.5, 'stroke-dasharray': '5 5' }));
+
+    // Оси
+    [30, 60, 120, 240].forEach((tick) => {
+      const y = yOf(tick);
+      svg.appendChild(svgNode('line', { x1: plotLeft, x2: plotRight, y1: y, y2: y, stroke: COLORS.grid, 'stroke-width': 1, 'stroke-dasharray': '3 4' }));
+      svg.appendChild(svgNode('text', { x: plotLeft - 10, y: y + 4, 'text-anchor': 'end', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, tick + ' с'));
+    });
+    svg.appendChild(svgNode('line', { x1: plotLeft, x2: plotRight, y1: plotBottom, y2: plotBottom, stroke: '#C9CBD0', 'stroke-width': 1.5 }));
+    [0.3, 0.5, 1, 2, 3, 5].forEach((tick) => {
+      const x = xOf(tick);
+      svg.appendChild(svgNode('line', { x1: x, x2: x, y1: plotBottom, y2: plotBottom + 5, stroke: '#C9CBD0', 'stroke-width': 1.5 }));
+      svg.appendChild(svgNode('text', { x, y: plotBottom + 20, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, String(tick).replace('.', ',') + ' ₽'));
+    });
+    svg.appendChild(svgNode('text', { x: plotRight, y: plotBottom + 37, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 650, fill: '#A3A6AD' }, 'цена одного разбора →'));
+
+    svg.appendChild(svgNode('text', { x: plotLeft + 14, y: optimumTop + 22, 'font-size': 12, 'font-weight': 800, 'letter-spacing': '.05em', fill: COLORS.green, class: 'lbl' }, 'ОПТИМУМ · ≤ 1,25 ₽ И ≤ 90 С'));
+    svg.appendChild(svgNode('text', { x: plotRight - 14, y: plotBottom - 14, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 800, 'letter-spacing': '.05em', fill: COLORS.redInk, class: 'lbl' }, 'ДОРОГО · ОТ 2 ₽'));
+
+    const radiusOf = (critic) => 5 + (critic - 0.6) / 0.33 * 9;
+    const colorOf = (numbers) => {
+      if (numbers >= 1) {
+        return COLORS.green;
+      }
+      if (numbers >= 0.8) {
+        return COLORS.amber;
+      }
+      return COLORS.red;
+    };
+
+    // Выноски: тонкая линия от края точки к подписи, если подпись отнесена далеко
+    E2E.forEach((point) => {
+      const cx = xOf(point.rub);
+      const cy = yOf(point.sec);
+      const distance = Math.hypot(point.label.dx, point.label.dy);
+      const radius = radiusOf(point.critic) + (point.chosen ? 5 : 0);
+      if (distance < radius + 14) {
+        return;
+      }
+      const anchorShift = { start: -4, end: 4, middle: 0 }[point.label.anchor];
+      const targetX = cx + point.label.dx + anchorShift;
+      const targetY = cy + point.label.dy;
+      const angle = Math.atan2(targetY - cy, targetX - cx);
+      svg.appendChild(svgNode('line', { x1: cx + Math.cos(angle) * (radius + 2), y1: cy + Math.sin(angle) * (radius + 2), x2: targetX, y2: targetY, stroke: '#B4B7BD', 'stroke-width': 1.2 }));
+    });
+
+    // Сначала крупные точки, чтобы мелкие были сверху
+    const sorted = [...E2E].sort((left, right) => right.critic - left.critic);
+    sorted.forEach((point) => {
+      const cx = xOf(point.rub);
+      const cy = yOf(point.sec);
+      const radius = radiusOf(point.critic);
+      if (point.chosen) {
+        svg.appendChild(svgNode('circle', { cx, cy, r: radius + 5, fill: '#fff', stroke: COLORS.ink, 'stroke-width': 2.5 }));
+      }
+      svg.appendChild(svgNode('circle', { cx, cy, r: radius, fill: colorOf(point.numbers), stroke: '#fff', 'stroke-width': 2 }));
+    });
+
+    E2E.forEach((point) => {
+      const cx = xOf(point.rub);
+      const cy = yOf(point.sec);
+      const labelX = cx + point.label.dx;
+      const labelY = cy + point.label.dy;
+      const attrs = {
+        x: labelX,
+        y: labelY + 4.5,
+        'text-anchor': point.label.anchor,
+        'font-size': point.chosen ? 14.5 : 13,
+        'font-weight': point.chosen ? 800 : 650,
+        fill: point.chosen ? COLORS.ink : '#45484E',
+        class: 'lbl',
+      };
+      svg.appendChild(svgNode('text', attrs, point.name));
+      if (point.sub) {
+        svg.appendChild(svgNode('text', { ...attrs, y: labelY + 21.5, 'font-size': 12.5, 'font-weight': 700, fill: COLORS.redInk }, point.sub));
+      }
+    });
+  }
+
+  /* ---------- 10: матрица ленты, данные ranking.json (per_company) ---------- */
+  const RANK = [
+    { name: 'Агро', sub: 'зернотрейдер', before: [15, 8], after: [6, 1] },
+    { name: 'Напитки', sub: 'производитель', before: [15, 10], after: [4, 0] },
+    { name: 'Топливо', sub: 'АЗС и опт', before: [13, 7], after: [4, 0] },
+    { name: 'Стройка', sub: 'девелопер', before: [10, 5], after: [4, 0] },
+    { name: 'Логистика', sub: 'перевозчик', before: [13, 6], after: [6, 0] },
+  ];
+
+  function dotsHtml(total, noise) {
+    const signal = total - noise;
+    const items = [];
+    for (let index = 0; index < signal; index++) {
+      items.push('<i></i>');
+    }
+    for (let index = 0; index < noise; index++) {
+      items.push('<i class="n"></i>');
+    }
+    return items.join('');
+  }
+
+  function drawRank(host) {
+    host.innerHTML = RANK.map((row) => {
+      const beforeShare = Math.round(row.before[1] / row.before[0] * 100);
+      const afterShare = Math.round(row.after[1] / row.after[0] * 100);
+      const afterClass = row.after[1] === 0 ? 'ok' : 'bad';
+      return `<div class="mx-row">
+        <div class="co">${row.name}<small>${row.sub}</small></div>
+        <div class="dots">${dotsHtml(row.before[0], row.before[1])}<em class="bad">${beforeShare}%</em></div>
+        <div class="to">→</div>
+        <div class="dots">${dotsHtml(row.after[0], row.after[1])}<em class="${afterClass}">${afterShare}%</em></div>
+      </div>`;
+    }).join('');
+  }
+
+  drawFaith(document.getElementById('faith-chart'));
+  drawE2E(document.getElementById('e2e-chart'));
+  drawRank(document.getElementById('rank-matrix'));
+
+  // Маскот в углу: та же 3D-модель, что на сайте (синхронный рендер в data URL)
+  (function () {
+    const mascot = window.Mascot;
+    document.querySelectorAll('[data-cat]').forEach((el) => {
+      const src = mascot && mascot.img ? mascot.img(el.dataset.cat, 380) : '';
+      if (!src) {
+        return;
+      }
+      const image = new Image();
+      image.alt = '';
+      image.src = src;
+      el.appendChild(image);
+    });
+    document.body.dataset.ready = '1';
+  })();
+</script>
 </body>
 </html>

@@ -79,6 +79,16 @@
   .legend span { display: inline-flex; align-items: center; gap: 7px; }
   .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 
+  /* Цитата жюри: дословная формулировка замечания */
+  .jury { display: grid; grid-template-columns: 40px 1fr; gap: 5px 16px; align-items: start; background: #fff; border-radius: 26px; padding: 16px 24px 17px; min-width: 0; box-shadow: inset 4px 0 0 var(--red); }
+  .jury > i { grid-row: span 2; width: 40px; height: 40px; border-radius: 12px; background: var(--red); color: #fff; display: grid; place-items: center; font: 800 30px/1 Georgia, "Times New Roman", serif; font-style: normal; padding-top: 12px; }
+  .jury .jl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--red); white-space: nowrap; }
+  .jury .jl span { color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+  .jury q { display: block; quotes: none; font-size: 15.5px; line-height: 1.42; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+  .jury.lg { padding: 20px 26px 21px; }
+  .jury.lg q { font-size: 18px; line-height: 1.42; }
+  .jury-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
   /* ===== Слайд 1 ===== */
   .s1 { display: grid; grid-template-columns: 650px 1fr; gap: 18px; }
   .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
@@ -117,7 +127,7 @@
   .bar.now span { background: var(--red); }
 
   /* ===== Слайд 2 ===== */
-  .s2 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 16px; height: 100%; }
+  .s2 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto 1fr 1fr; gap: 16px; height: 100%; }
   .s2 .card { display: flex; flex-direction: column; }
   .field { margin-top: 12px; display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: start; }
   .field > code { padding-top: 7px; color: #C21F14; }
@@ -177,7 +187,15 @@
   .fbrow.rest code, .fbrow.rest em { color: var(--muted); font-size: 14px; }
 
   /* ===== Слайд 3 ===== */
-  .s3 { display: grid; grid-template-columns: 1fr 640px; gap: 18px; height: 100%; }
+  .s3 { display: grid; grid-template-columns: 1fr 640px; grid-template-rows: auto 1fr; gap: 16px 18px; height: 100%; }
+  .s3 .jury-row { grid-template-columns: 1fr 640px; gap: 18px; }
+  .s3 .jury { align-content: center; }
+  .s3 .col { gap: 14px; }
+  .s3 .col > .card { padding: 18px 26px; }
+  .s3 .h { margin-top: 6px; }
+  .s3 .foot { padding-top: 10px; }
+  .s3 .roles div { padding: 10px 10px; }
+  .s3 .roles b { font-size: 14px; white-space: nowrap; }
   .s3 .col > .card { flex: 1; display: flex; flex-direction: column; }
   .roles { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .roles div { border-radius: 12px; padding: 10px 12px; background: var(--bg); }
@@ -262,9 +280,10 @@
   <span class="corner" data-cat="sales"></span>
   <div class="body s1">
     <div class="col">
-      <div class="card">
-        <div class="k"><span class="pill was">Было</span>замечание жюри</div>
-        <p class="quote">Проверить веса и качество ранжирования на данных, убрать смешение чужих отраслей, обеспечить консистентность дат, разметки и кэша.</p>
+      <div class="jury lg">
+        <i>“</i>
+        <div class="jl">Замечание жюри №1<span>· дословно</span></div>
+        <q>Проверьте веса и качество ранжирования на данных: приоритет должен отражать значимость события для компании.</q>
       </div>
       <div class="card dark">
         <div class="k"><span class="pill now">Стало</span>калиброванная формула</div>
@@ -354,10 +373,14 @@
 <!-- 2. Точность разборов -->
 <section class="slide" data-name="02-insight-quality">
   <div class="top"><span class="tag">Замечания жюри №2 и №3</span><span class="num">2 / 4</span></div>
-  <h1 class="s44">Точность разборов, анти-галлюцинации и статус готовности</h1>
+  <h1>Точность разборов и честный статус готовности</h1>
   <p class="lead">Разбор больше не переносит рост рынка на компанию, не путает источники и даты, а спорное <b>честно помечает</b>.</p>
   <span class="corner" data-cat="tax"></span>
   <div class="body s2">
+    <div class="jury-row">
+      <div class="jury"><i>“</i><div class="jl">Замечание жюри №2<span>· дословно</span></div><q>Не переносите общий рыночный рост на результаты компании. Уточняйте условия реализации возможностей и точно передавайте смысл источников.</q></div>
+      <div class="jury"><i>“</i><div class="jl">Замечание жюри №3<span>· дословно</span></div><q>Не выдавайте разбор как готовый при оставшихся противоречиях и неподтверждённых цифрах. Сохраняйте ссылки на дополнительные источники.</q></div>
+    </div>
     <div class="card">
       <div class="k">Без overclaim</div>
       <div class="h">Рост рынка ≠ рост компании</div>
@@ -424,7 +447,11 @@
   <h1>Чат по событию, уточнения и чистые слои сервера</h1>
   <p class="lead">Чат не смешивает компании и события, уточнения клиента важнее всего, а сервер разложен по слоям.</p>
   <span class="corner" data-cat="people"></span>
-  <div class="body s3">
+  <div class="body s3" style="margin-top:24px">
+    <div class="jury-row">
+      <div class="jury"><i>“</i><div class="jl">Замечание жюри №4<span>· дословно</span></div><q>Проверяйте даты и форматы данных, согласованно обновляйте текст, разметку и кэш. Исключите смешение компаний, привяжите историю чата к событию и учитывайте уточнения пользователя.</q></div>
+      <div class="jury"><i>“</i><div class="jl">Замечание жюри №5<span>· дословно</span></div><q>Отделите загрузку, правила обратной связи и работу с базой данных от обработки веб-запросов.</q></div>
+    </div>
     <div class="col">
       <div class="card">
         <div class="k">Без смешения компаний</div>

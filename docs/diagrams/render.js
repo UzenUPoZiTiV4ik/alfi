@@ -6,6 +6,9 @@ const path = require('path');
 const { chromium } = require('playwright-core');
 
 (async () => {
+  const targetHtml = process.argv[2] || 'index.html';
+  const htmlPath = path.isAbsolute(targetHtml) ? targetHtml : path.join(__dirname, targetHtml);
+  const outDir = process.argv[3] ? path.resolve(process.argv[3]) : path.dirname(htmlPath);
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || undefined,
     args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--allow-file-access-from-files'],
@@ -13,12 +16,17 @@ const { chromium } = require('playwright-core');
   const page = await browser.newPage({ viewport: { width: 1700, height: 1100 }, deviceScaleFactor: 2 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.join(__dirname, 'index.html'));
-  await page.waitForFunction(() => document.body.dataset.ready === '1');
-  await page.waitForTimeout(400);
+  await page.goto('file://' + htmlPath);
+  if (targetHtml === 'index.html') {
+    await page.waitForFunction(() => document.body.dataset.ready === '1');
+  }
+  await page.evaluate(async () => {
+    await Promise.all([...document.images].map((img) => img.complete ? null : new Promise((r) => { img.onload = img.onerror = r; })));
+  });
+  await page.waitForTimeout(600);
 
-  // Проверка вёрстки: узлы не пересекаются, не вылезают за слайд и не залезают под маскота
-  const issues = await page.evaluate(() => {
+  // Проверка вёрстки для графов (index.html)
+  const issues = targetHtml !== 'index.html' ? [] : await page.evaluate(() => {
     const out = [];
     document.querySelectorAll('.slide').forEach((sl) => {
       const name = sl.dataset.name, S = sl.getBoundingClientRect();
@@ -41,7 +49,7 @@ const { chromium } = require('playwright-core');
 
   for (const sl of await page.$$('.slide')) {
     const name = await sl.getAttribute('data-name');
-    await sl.screenshot({ path: path.join(__dirname, name + '.png') });
+    await sl.screenshot({ path: path.join(outDir, name + '.png') });
     console.log('ok', name);
   }
   const missing = await page.evaluate(() => [...document.querySelectorAll('[data-cat]')].filter((el) => !el.querySelector('img')).length);

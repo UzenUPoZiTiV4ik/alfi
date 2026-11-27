@@ -3,7 +3,7 @@
   "info": {
     "title": "Альфи · новостная аналитика для крупного бизнеса",
     "description": "Персональные бизнес-инсайты из новостей и аналитики Альфа-Банка. Прототип для Альфа Хак.",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "paths": {
     "/api/health": {
@@ -671,6 +671,90 @@
         }
       }
     },
+    "/api/insight/{news_id}/clarifications": {
+      "get": {
+        "summary": "Get Clarifications",
+        "operationId": "get_clarifications_api_insight__news_id__clarifications_get",
+        "parameters": [
+          {
+            "name": "news_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "News Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/insight/{news_id}/clarify": {
+      "post": {
+        "summary": "Add Clarification",
+        "operationId": "add_clarification_api_insight__news_id__clarify_post",
+        "parameters": [
+          {
+            "name": "news_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "News Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClarifyIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/chat": {
       "post": {
         "summary": "Chat",
@@ -719,6 +803,16 @@
               "default": "",
               "title": "Helper"
             }
+          },
+          {
+            "name": "news_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "News Id"
+            }
           }
         ],
         "responses": {
@@ -754,6 +848,16 @@
               "type": "string",
               "default": "",
               "title": "Helper"
+            }
+          },
+          {
+            "name": "news_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "News Id"
             }
           }
         ],
@@ -1220,6 +1324,21 @@
           "message"
         ],
         "title": "ChatIn"
+      },
+      "ClarifyIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 600,
+            "minLength": 5,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ClarifyIn"
       },
       "FeedbackIn": {
         "properties": {

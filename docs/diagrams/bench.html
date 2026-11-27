@@ -2,225 +2,358 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Альфи · замеры</title>
+<title>Альфи · замеры v2</title>
 <meta name="viewport" content="width=1600">
 <style>
-  :root { --red:#EF3124; --red-soft:#FDECEA; --ink:#0B0B0C; --text:#1C1D20; --muted:#6D7076; --line:#C9CBD0; --bg:#F3F4F5; --green:#2E8A3A; --amber:#9A6200; }
+  :root {
+    --red:#EF3124; --red-soft:#FDECEA; --ink:#0B0B0C; --text:#1C1D20; --muted:#6D7076;
+    --line:#E2E4E8; --bg:#F3F4F5; --green:#238236; --green-soft:#E9F7EC; --amber:#A06300; --amber-soft:#FEF5E4;
+  }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background:#D9DADD; color:var(--text); -webkit-font-smoothing:antialiased; }
-  .slide { position:relative; width:1600px; height:1000px; margin:40px auto; padding:60px 72px 56px; background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
+  .slide { position:relative; width:1600px; height:1000px; margin:40px auto; padding:54px 68px 48px; background:var(--bg); overflow:hidden; display:flex; flex-direction:column; }
   .top { display:flex; align-items:center; gap:12px; }
   .tag { display:inline-flex; align-items:center; height:32px; padding:0 13px; border-radius:10px; background:var(--red); color:#fff; font-size:15px; font-weight:700; }
   .num { font-size:15px; font-weight:600; color:var(--muted); }
   .brand { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700; color:var(--ink); }
   .brand i { width:24px; height:24px; border-radius:7px; background:var(--red); display:grid; place-items:center; color:#fff; font-style:normal; font-size:14px; font-weight:800; }
-  h1 { margin-top:20px; font-size:46px; line-height:1.07; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-  .lead { margin-top:12px; font-size:19px; line-height:1.45; color:var(--muted); max-width:1120px; }
+  h1 { margin-top:16px; font-size:44px; line-height:1.06; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+  .lead { margin-top:10px; font-size:18px; line-height:1.42; color:var(--muted); max-width:1320px; }
   .lead b { color:var(--ink); }
-  .body { flex:1; min-height:0; margin-top:34px; display:flex; flex-direction:column; gap:18px; }
-  .body.spread { justify-content:space-between; }
-  .card { background:#fff; border-radius:26px; padding:30px 34px; }
+  .body { flex:1; min-height:0; margin-top:24px; display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border-radius:24px; padding:24px 28px; }
   .card.dark { background:#151517; color:#fff; }
-  .k { font-size:12.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
-  .card.dark .k { color:rgba(255,255,255,.5); }
+  .k { font-size:12px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .card.dark .k { color:rgba(255,255,255,.55); }
 
-  /* 1. бары по метрикам */
-  .grid { display:grid; grid-template-columns: 260px 1fr; gap:14px 26px; align-items:center; }
-  .metric { font-size:17px; font-weight:650; color:var(--ink); }
-  .series { display:grid; gap:7px; }
-  .bar { display:grid; grid-template-columns: 96px 1fr 58px; gap:12px; align-items:center; }
-  .bar b { font-size:13.5px; font-weight:650; color:var(--muted); text-align:right; }
-  .bar i { display:block; height:18px; border-radius:6px; background:var(--bg); position:relative; overflow:hidden; }
-  .bar i span { display:block; height:100%; border-radius:6px; }
-  .bar em { font-style:normal; font-size:15px; font-weight:750; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .ours span { background:var(--red); }
-  .rag span { background:#8E9197; }
-  .bare span { background:#C5C7CB; }
-  .legend { display:flex; gap:22px; font-size:14px; color:var(--muted); }
-  .legend span { display:inline-flex; align-items:center; gap:8px; }
-  .legend i { width:16px; height:16px; border-radius:5px; display:inline-block; }
-  .kpis { display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; }
-  .kpi { background:#fff; border-radius:22px; padding:24px 26px; }
-  .kpi b { display:block; font-size:44px; font-weight:800; letter-spacing:-.03em; color:var(--ink); line-height:1; font-variant-numeric:tabular-nums; }
-  .kpi span { display:block; margin-top:8px; font-size:15px; color:var(--muted); }
+  /* Таблица замеров */
+  table.tbl { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+  table.tbl th { text-align:left; font-size:11.5px; font-weight:750; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); padding:0 10px 10px; border-bottom:1.5px solid var(--line); }
+  table.tbl th.r, table.tbl td.r { text-align:right; }
+  table.tbl td { padding:8.5px 10px; border-bottom:1px solid #F0F1F3; color:var(--text); vertical-align:middle; }
+  table.tbl tr:last-child td { border-bottom:none; }
+  table.tbl tr.win td { background:#FFF7F6; font-weight:650; }
+  table.tbl tr.win td:first-child { border-radius:10px 0 0 10px; }
+  table.tbl tr.win td:last-child { border-radius:0 10px 10px 0; }
+  table.tbl tr.bad td { color:#8C8F96; }
+  .mono { font-family:ui-monospace, Menlo, monospace; font-size:13px; color:var(--ink); font-weight:650; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:7px; font-size:12px; font-weight:750; }
+  .pill.g { background:var(--green-soft); color:var(--green); }
+  .pill.r { background:var(--red-soft); color:#C62216; }
+  .pill.a { background:var(--amber-soft); color:var(--amber); }
+  .pill.m { background:#ECEEF1; color:#555961; }
+  .pill.d { background:#151517; color:#fff; }
+
+  .bar-inline { display:inline-flex; align-items:center; gap:8px; width:140px; }
+  .bar-inline i { flex:1; height:10px; border-radius:5px; background:#ECEEF1; overflow:hidden; display:block; }
+  .bar-inline i b { display:block; height:100%; border-radius:5px; }
+
+  .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; }
+  .kpis.c3 { grid-template-columns:repeat(3, 1fr); }
+  .kpi { background:#fff; border-radius:20px; padding:18px 22px; }
+  .kpi.dark { background:#151517; color:#fff; }
+  .kpi b { display:block; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); line-height:1.05; font-variant-numeric:tabular-nums; }
   .kpi.hl b { color:var(--red); }
+  .kpi.gr b { color:var(--green); }
+  .kpi.dark b { color:#FF8A80; }
+  .kpi span { display:block; margin-top:6px; font-size:13.5px; line-height:1.35; color:var(--muted); }
+  .kpi.dark span { color:rgba(255,255,255,.72); }
 
-  /* 2. цена качества */
-  .plot { position:relative; flex:1; margin:8px 0 34px 70px; border-left:2px solid var(--line); border-bottom:2px solid var(--line); }
-  .plot .yl { position:absolute; right:calc(100% + 12px); font-size:12.5px; color:var(--muted); transform:translateY(50%); }
-  .plot .xl { position:absolute; top:calc(100% + 10px); font-size:12.5px; color:var(--muted); transform:translateX(-50%); }
-  .pt { position:absolute; transform:translate(-50%, 50%); display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .pt i { width:30px; height:30px; border-radius:50%; background:var(--red); box-shadow:0 0 0 6px rgba(239,49,36,.14); display:grid; place-items:center; color:#fff; font-style:normal; font-size:13px; font-weight:800; }
-  .pt.small i { background:#8E9197; box-shadow:0 0 0 6px rgba(142,145,151,.14); }
-  .pt.think i { background:#0B0B0C; box-shadow:0 0 0 6px rgba(11,11,12,.12); }
-  .pt span { display:none; }
-  .bench-legend { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 22px; margin-top:18px; }
-  .bench-legend div { display:flex; gap:10px; align-items:center; font-size:14.5px; color:var(--text); }
-  .bench-legend b { width:24px; height:24px; border-radius:50%; background:var(--red); color:#fff; display:grid; place-items:center; font-size:12px; flex:none; }
-  .bench-legend div:nth-child(2) b { background:#0B0B0C; }
-  .bench-legend div:nth-child(n+3) b { background:#8E9197; }
-  .bench-legend span { color:var(--muted); }
-  .pt.think i { background:var(--ink); box-shadow:0 0 0 6px rgba(11,11,12,.12); }
-  .pt.up { flex-direction:column-reverse; }
-  .pt span { font-size:13.5px; font-weight:700; color:var(--ink); white-space:nowrap; background:var(--bg); padding:3px 8px; border-radius:7px; }
-  .axis-name { position:absolute; font-size:13px; font-weight:700; color:var(--muted); }
+  .cols2 { display:grid; grid-template-columns:1.15fr 0.85fr; gap:16px; flex:1; min-height:0; }
+  .cols2.eq { grid-template-columns:1fr 1fr; }
 
-  /* 3. режимы */
-  .duo { display:grid; grid-template-columns:1fr 1fr; gap:18px; flex:1; min-height:0; }
-  .pair { display:flex; flex-direction:column; gap:18px; height:100%; }
-  .pair h3 { font-size:24px; font-weight:750; color:var(--ink); letter-spacing:-.015em; }
-  .rows { display:flex; flex-direction:column; justify-content:space-evenly; gap:11px; flex:1; }
-  .row { display:grid; grid-template-columns: 132px 1fr 74px; gap:12px; align-items:center; }
-  .row span { font-size:14px; color:var(--muted); }
-  .row i { display:block; height:14px; border-radius:5px; background:var(--bg); overflow:hidden; }
-  .row i b { display:block; height:100%; border-radius:5px; background:#C5C7CB; }
-  .row i b.on { background:var(--red); }
-  .row em { font-size:14.5px; font-weight:750; font-style:normal; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
-  .verdict { margin-top:auto; background:#151517; border-radius:22px; padding:22px 26px; color:#fff; font-size:17px; line-height:1.45; }
+  /* Бары сравнения */
+  .mrows { display:flex; flex-direction:column; gap:13px; }
+  .mrow { display:grid; grid-template-columns:170px 1fr 118px; gap:14px; align-items:center; }
+  .mrow .lbl { font-size:15px; font-weight:700; color:var(--ink); }
+  .mrow .sub { font-size:12px; color:var(--muted); font-weight:500; display:block; margin-top:2px; }
+  .pairbar { display:flex; flex-direction:column; gap:5px; }
+  .pb { display:flex; align-items:center; gap:8px; }
+  .pb small { width:52px; font-size:12px; color:var(--muted); text-align:right; font-weight:600; }
+  .pb i { flex:1; height:14px; border-radius:5px; background:var(--bg); overflow:hidden; display:block; }
+  .pb i span { display:block; height:100%; border-radius:5px; }
+  .pb em { width:46px; font-style:normal; font-size:13.5px; font-weight:750; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .delta { text-align:right; font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .delta.pos { color:var(--green); }
+
+  .verdict { background:#151517; border-radius:20px; padding:18px 24px; color:#fff; font-size:15.5px; line-height:1.45; }
   .verdict b { color:#FF8A80; }
-  .note { font-size:13.5px; line-height:1.5; color:var(--muted); }
+  .note { font-size:12.5px; line-height:1.4; color:var(--muted); }
+  .list { display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .li { display:flex; gap:10px; align-items:flex-start; font-size:14.5px; line-height:1.4; }
+  .li i { width:22px; height:22px; border-radius:7px; background:var(--red-soft); color:var(--red); font-style:normal; font-weight:800; font-size:12px; display:grid; place-items:center; flex:none; margin-top:1px; }
+  .li b { color:var(--ink); }
+  .card.dark .li { color:rgba(255,255,255,.84); }
+  .card.dark .li b { color:#fff; }
+  .card.dark .li i { background:rgba(239,49,36,.24); color:#FF8A80; }
 </style>
 </head>
 <body>
 
-<!-- 1 -->
-<section class="slide" data-name="08-bench-systems">
-  <div class="top"><span class="tag">Замеры</span><span class="num">1 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
-  <h1>Агент против одного вызова модели</h1>
-  <p class="lead">Три новости зернотрейдера, роль финдиректора. Агент проходит план, инструменты, девять правил и критика. Для сравнения: тот же материал одним вызовом <b>с аналитикой банка</b> и <b>без источников</b>.</p>
+<!-- 1. Alfi-FaithBench: галлюцинации по 6 моделям и режимам мышления -->
+<section class="slide" data-name="08-bench-faith">
+  <div class="top"><span class="tag">Замеры · галлюцинации</span><span class="num">1 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
+  <h1>Alfi-FaithBench: галлюцинации по 6 моделям × off / low / on</h1>
+  <p class="lead">288 прогонов на 18 кейсах-ловушках по 6 категориям (цифры, перенос рыночного роста, противоречия дат, атрибуция банка, смешение юрлиц, неполные данные). Двойная проверка: детерминистика + cross-family судья (без self-bias).</p>
   <div class="body">
-    <div class="card">
-      <div class="legend" style="margin-bottom:22px">
-        <span><i style="background:var(--red)"></i>агент Альфи</span>
-        <span><i style="background:#8E9197"></i>один вызов с аналитикой банка</span>
-        <span><i style="background:#C5C7CB"></i>один вызов без источников</span>
-      </div>
-      <div class="grid">
-        <div class="metric">Правила проверки</div>
-        <div class="series">
-          <div class="bar ours"><b>агент</b><i><span style="width:93%"></span></i><em>93%</em></div>
-          <div class="bar rag"><b>один вызов</b><i><span style="width:85%"></span></i><em>85%</em></div>
-          <div class="bar bare"><b>без данных</b><i><span style="width:89%"></span></i><em>89%</em></div>
-        </div>
-        <div class="metric">Достоверность</div>
-        <div class="series">
-          <div class="bar ours"><b>агент</b><i><span style="width:77%"></span></i><em>0,77</em></div>
-          <div class="bar rag"><b>один вызов</b><i><span style="width:77%"></span></i><em>0,77</em></div>
-          <div class="bar bare"><b>без данных</b><i><span style="width:67%"></span></i><em>0,67</em></div>
-        </div>
-        <div class="metric">Атрибуция</div>
-        <div class="series">
-          <div class="bar ours"><b>агент</b><i><span style="width:73%"></span></i><em>0,73</em></div>
-          <div class="bar rag"><b>один вызов</b><i><span style="width:53%"></span></i><em>0,53</em></div>
-          <div class="bar bare"><b>без данных</b><i><span style="width:100%"></span></i><em>1,00</em></div>
-        </div>
-        <div class="metric">Персонализация</div>
-        <div class="series">
-          <div class="bar ours"><b>агент</b><i><span style="width:100%"></span></i><em>1,00</em></div>
-          <div class="bar rag"><b>один вызов</b><i><span style="width:97%"></span></i><em>0,97</em></div>
-          <div class="bar bare"><b>без данных</b><i><span style="width:90%"></span></i><em>0,90</em></div>
-        </div>
-        <div class="metric">Глубина</div>
-        <div class="series">
-          <div class="bar ours"><b>агент</b><i><span style="width:97%"></span></i><em>0,97</em></div>
-          <div class="bar rag"><b>один вызов</b><i><span style="width:97%"></span></i><em>0,97</em></div>
-          <div class="bar bare"><b>без данных</b><i><span style="width:87%"></span></i><em>0,87</em></div>
-        </div>
-      </div>
+    <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding:20px 26px">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Модель шлюза</th>
+            <th>Мышление</th>
+            <th>Галлюцинации ↓</th>
+            <th class="r">Ловушки ↑</th>
+            <th class="r">Верность</th>
+            <th class="r">JSON</th>
+            <th class="r">Сек</th>
+            <th class="r">₽ / выз</th>
+            <th class="r">Выз / 600 ₽</th>
+            <th>Роль в Альфи</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="win">
+            <td><span class="mono">z-ai/glm-5.3-flash</span></td>
+            <td><span class="pill g">low / off</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:2%;background:var(--green)"></b></i><span class="pill g">0,0%</span></span></td>
+            <td class="r"><b>100,0%</b></td><td class="r">1,000</td><td class="r">100%</td><td class="r">5,6–6,9</td><td class="r"><b>0,038–0,044</b></td><td class="r"><b>15 656</b></td>
+            <td><span class="pill d">Критик</span></td>
+          </tr>
+          <tr class="win">
+            <td><span class="mono">deepseek/deepseek-v4.1-flash</span></td>
+            <td><span class="pill g">on</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:2%;background:var(--green)"></b></i><span class="pill g">0,0%</span></span></td>
+            <td class="r"><b>100,0%</b></td><td class="r">1,000</td><td class="r">100%</td><td class="r">10,1</td><td class="r">0,108</td><td class="r">5 536</td>
+            <td><span class="pill m">Сложный аудит</span></td>
+          </tr>
+          <tr class="win">
+            <td><span class="mono">google/gemma-4-26b-a4b-it</span></td>
+            <td><span class="pill m">off</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--green)"></b></i><span class="pill g">5,6%</span></span></td>
+            <td class="r">94,4%</td><td class="r">0,967</td><td class="r">100%</td><td class="r"><b>3,4</b></td><td class="r"><b>0,018</b></td><td class="r"><b>32 564</b></td>
+            <td><span class="pill d">Разметка RSS</span></td>
+          </tr>
+          <tr class="win">
+            <td><span class="mono">deepseek/deepseek-v4.1-flash</span></td>
+            <td><span class="pill m">off</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--green)"></b></i><span class="pill g">5,6%</span></span></td>
+            <td class="r">94,4%</td><td class="r">1,000</td><td class="r">100%</td><td class="r">4,9</td><td class="r">0,057</td><td class="r">10 472</td>
+            <td><span class="pill r">Основной агент</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">z-ai/glm-5.3-flash</span></td>
+            <td><span class="pill a">on</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:8%;background:var(--amber)"></b></i><span class="pill a">5,6%</span></span></td>
+            <td class="r">94,4%</td><td class="r">0,983</td><td class="r">100%</td><td class="r">25,7</td><td class="r">0,174</td><td class="r">3 438</td>
+            <td>медленнее в 4×</td>
+          </tr>
+          <tr>
+            <td><span class="mono">qwen/qwen3.6-35b-a3b</span></td>
+            <td><span class="pill m">off</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:15%;background:var(--amber)"></b></i><span class="pill a">11,1%</span></span></td>
+            <td class="r">88,9%</td><td class="r">0,950</td><td class="r">100%</td><td class="r"><b>3,4</b></td><td class="r">0,050</td><td class="r">12 103</td>
+            <td><span class="pill d">Запасная (off)</span></td>
+          </tr>
+          <tr>
+            <td><span class="mono">google/gemma-4-26b-a4b-it</span></td>
+            <td><span class="pill m">low / on</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:15%;background:var(--amber)"></b></i><span class="pill a">11,1%</span></span></td>
+            <td class="r">83–89%</td><td class="r">0,90–0,95</td><td class="r">94–100%</td><td class="r">13,5–14,8</td><td class="r">0,066–0,079</td><td class="r">7 627–9 079</td>
+            <td>хуже, чем off</td>
+          </tr>
+          <tr class="bad">
+            <td><span class="mono">moonshotai/kimi-k2.6</span></td>
+            <td><span class="pill r">off / low / on</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:20%;background:var(--red)"></b></i><span class="pill r">11–17%</span></span></td>
+            <td class="r">83–89%</td><td class="r">0,96</td><td class="r">100%</td><td class="r">8,3–39,6</td><td class="r">0,341–0,980</td><td class="r">612–1 760</td>
+            <td>в 7–25× дороже</td>
+          </tr>
+          <tr class="bad">
+            <td><span class="mono">qwen/qwen3-vl-30b-a3b</span></td>
+            <td><span class="pill m">off</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:31%;background:var(--red)"></b></i><span class="pill r">22,2%</span></span></td>
+            <td class="r">77,8%</td><td class="r">0,875</td><td class="r">100%</td><td class="r">11,5</td><td class="r">0,050</td><td class="r">12 002</td>
+            <td>только OCR PDF</td>
+          </tr>
+          <tr class="bad">
+            <td><span class="mono">qwen/qwen3.6-35b-a3b</span></td>
+            <td><span class="pill r">low / on</span></td>
+            <td><span class="bar-inline"><i style="width:86px"><b style="width:72%;background:var(--red)"></b></i><span class="pill r">28–72%</span></span></td>
+            <td class="r">22–72%</td><td class="r">0,27–0,89</td><td class="r">28–94%</td><td class="r">26,1–32,4</td><td class="r">0,058–0,263</td><td class="r">—</td>
+            <td>запрещён в коде</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <div class="kpis">
-      <div class="kpi hl"><b>3 из 3</b><span>разборов с позицией Альфа-Банка. У варианта без источников — 0 из 3</span></div>
-      <div class="kpi hl"><b>15</b><span>ссылок на источники в среднем у агента, у одного вызова — 7 и 1</span></div>
-      <div class="kpi"><b>0,73 ₽</b><span>стоимость разбора агента против 0,27 ₽ у одного вызова</span></div>
+      <div class="kpi gr"><b>0,0%</b><span>галлюцинаций у glm-5.3-flash (off/low) и deepseek-v4.1-flash (on) на 18 ловушках</span></div>
+      <div class="kpi hl"><b>32 564</b><span>вызова gemma-4-26b (off) в 600 ₽/день — 0,018 ₽/выз и 3,4 с для разметки RSS</span></div>
+      <div class="kpi"><b>×7,6</b><span>дороже kimi-k2.6 (0,341 ₽) при худшем прохождении ловушек (83% против 100%)</span></div>
+      <div class="kpi dark"><b>Только DeepSeek</b><span>получает пользу от reasoning; на Qwen3.6 low ломает 72% JSON и выключен в llm.py</span></div>
     </div>
-    <p class="note">n = 3 события, компания U_34911, роль CFO, 26 октября 2026. Правила — 9 проверок агента, оценки 0–1 — независимый критик glm-5.3-flash. У ответа без источников атрибуцию проверять не на чем, поэтому критик ставит 1,00: смотрите на ссылки и позицию банка.</p>
   </div>
 </section>
 
-<!-- 2 -->
-<section class="slide" data-name="09-bench-cost">
-  <div class="top"><span class="tag">Замеры</span><span class="num">2 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
-  <h1>Сколько качества даёт каждый рубль</h1>
-  <p class="lead">Качество — среднее четырёх оценок критика. Видно, что агент дороже одиночного вызова, но разрыв в цене небольшой, а в трассируемости и позиции банка — принципиальный.</p>
+<!-- 2. End-to-End бенчмарк агента: модели, режимы мышления и абляция -->
+<section class="slide" data-name="09-bench-e2e">
+  <div class="top"><span class="tag">Замеры · E2E пайплайн</span><span class="num">2 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
+  <h1>Полный агент: выбор быстрой дешёвой модели и режимов мышления</h1>
+  <p class="lead">75 полных прогонов (15 вариантов × 5 разноотраслевых событий с реальной БЗ Альфа-Банка). Сравнили все 5 текстовых моделей, режимы мышления <b>off / selective low / on</b> и одиночные вызовы.</p>
   <div class="body">
-    <div class="card" style="flex:1; display:flex; flex-direction:column; padding:34px 40px 22px">
-      <div class="plot">
-        <span class="axis-name" style="bottom:100%; left:0; margin-bottom:8px">качество, %</span>
-        <span class="axis-name" style="top:100%; left:0; margin-top:30px">стоимость разбора, ₽</span>
-        <span class="yl" style="bottom:100%">100</span>
-        <span class="yl" style="bottom:75%">90</span>
-        <span class="yl" style="bottom:50%">80</span>
-        <span class="yl" style="bottom:25%">70</span>
-        <span class="yl" style="bottom:0">60</span>
-        <span class="xl" style="left:0%">0</span>
-        <span class="xl" style="left:100%">1,20</span>
-        <span class="xl" style="left:25%">0,30</span>
-        <span class="xl" style="left:50%">0,60</span>
-        <span class="xl" style="left:75%">0,90</span>
+    <div class="cols2">
+      <div class="card" style="display:flex; flex-direction:column; gap:14px; padding:22px 24px">
+        <div class="k" style="margin-bottom:4px">Сравнение моделей, low reasoning effort и абляции (n = 5 событий)</div>
+        <table class="tbl" style="flex:1">
+          <thead>
+            <tr>
+              <th>Вариант (агент)</th>
+              <th class="r">Прав ↑</th>
+              <th class="r">Цифр ↑</th>
+              <th class="r">Крит ↑</th>
+              <th class="r">Ссыл</th>
+              <th class="r">Сек</th>
+              <th class="r">₽</th>
+              <th class="r">Шт/600 ₽</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="win">
+              <td><b>deepseek-v4.1-flash (off)</b></td>
+              <td class="r">94,1%</td><td class="r">80%</td><td class="r"><b>0,927</b></td><td class="r">10,2 / 25</td><td class="r"><b>51,6</b></td><td class="r"><b>0,86</b></td><td class="r"><b>698</b></td>
+            </tr>
+            <tr class="win">
+              <td><b>deepseek (selective low)</b></td>
+              <td class="r"><b>96,1%</b></td><td class="r"><b>100%</b></td><td class="r">0,838</td><td class="r"><b>10,8 / 27</b></td><td class="r">77,9</td><td class="r">1,14</td><td class="r">527</td>
+            </tr>
+            <tr>
+              <td>qwen3.6-35b-a3b (off)</td>
+              <td class="r"><b>96,1%</b></td><td class="r"><b>100%</b></td><td class="r">0,700</td><td class="r">6,4 / 29</td><td class="r">44,9</td><td class="r">0,78</td><td class="r">766</td>
+            </tr>
+            <tr>
+              <td>gemma-4-26b (off)</td>
+              <td class="r">92,2%</td><td class="r"><b>100%</b></td><td class="r">0,647</td><td class="r">5,8 / 27</td><td class="r"><b>33,4</b></td><td class="r"><b>0,45</b></td><td class="r"><b>1 333</b></td>
+            </tr>
+            <tr>
+              <td>gemma-4-26b (low synth)</td>
+              <td class="r">94,1%</td><td class="r"><b>100%</b></td><td class="r">0,802</td><td class="r">5,6 / 28</td><td class="r">96,4</td><td class="r">0,79</td><td class="r">757</td>
+            </tr>
+            <tr>
+              <td>glm-5.3-flash (off)</td>
+              <td class="r">88,2%</td><td class="r">40%</td><td class="r">0,697</td><td class="r">10,2 / 31</td><td class="r">96,9</td><td class="r">0,81</td><td class="r">736</td>
+            </tr>
+            <tr>
+              <td>hybrid: glm + ds (think)</td>
+              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,776</td><td class="r">9,8 / 27</td><td class="r">159,0</td><td class="r">1,74</td><td class="r">344</td>
+            </tr>
+            <tr class="bad">
+              <td>deepseek (full think:on)</td>
+              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,690</td><td class="r">12,6 / 21</td><td class="r">215,4</td><td class="r">2,42</td><td class="r">248</td>
+            </tr>
+            <tr class="bad">
+              <td>kimi-k2.6 (off)</td>
+              <td class="r">90,2%</td><td class="r">0%</td><td class="r">0,620</td><td class="r">11,6 / 29</td><td class="r">115,8</td><td class="r">4,92</td><td class="r">121</td>
+            </tr>
+            <tr>
+              <td><i>1 вызов + банк (single_rag)</i></td>
+              <td class="r">88,2%</td><td class="r">100%</td><td class="r">0,740</td><td class="r">8,2 / 8</td><td class="r">24,8</td><td class="r">0,35</td><td class="r">1 700</td>
+            </tr>
+            <tr>
+              <td><i>1 вызов без базы (bare)</i></td>
+              <td class="r">96,1%</td><td class="r">100%</td><td class="r">0,722</td><td class="r">5,2 / 5</td><td class="r">22,9</td><td class="r">0,28</td><td class="r">2 120</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">«Ссыл»: процитированные / все сохранённые с URL. У single-вызовов нет поиска доп. новостей, контрагентов, группы и петли доработки.</p>
+      </div>
 
-        <div class="pt" style="left:60.8%; bottom:67.5%"><i>1</i></div>
-        <div class="pt think" style="left:95%; bottom:92.5%"><i>2</i></div>
-        <div class="pt small" style="left:22.5%; bottom:52.5%"><i>3</i></div>
-        <div class="pt small" style="left:24.2%; bottom:65%"><i>4</i></div>
-        <div class="pt small" style="left:18.3%; bottom:65%"><i>5</i></div>
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div class="card dark" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; padding:26px 28px">
+          <div class="k">Итоговый выбор стека моделей</div>
+          <div class="list" style="gap:18px; flex:1; justify-content:center">
+            <div class="li"><i>1</i><div><b>Агент и чат — deepseek-v4.1-flash (off):</b> лучший баланс цены (0,86 ₽), скорости (51,6 с), глубины цитирования (10,2 сноски) и оценки критика (0,927). Вмещает <b>698 разборов в 600 ₽/день</b>.</div></div>
+            <div class="li"><i>2</i><div><b>Режим повышенной строгости — selective low (synth+repair):</b> закрывает 100% проверок цифр и 96,1% правил за <b>77,9 с и 1,14 ₽</b> — в <b>2,8× быстрее</b> и в <b>2,1× дешевле</b> полного <code>think:on</code> (215 с / 2,42 ₽).</div></div>
+            <div class="li"><i>3</i><div><b>Критик — glm-5.3-flash (off):</b> 0,0% галлюцинаций в FaithBench и 0,044 ₽/вызов. Как основной агент длинного JSON она вдвое медленнее (96,9 с), но как аудитор идеальна.</div></div>
+            <div class="li"><i>4</i><div><b>Разметка — gemma-4-26b (off):</b> 0,018 ₽ и 3,4 с; <b>Запасная — qwen3.6-35b (off):</b> 44,9 с и 100% цифр.</div></div>
+          </div>
+        </div>
+        <div class="kpis c3">
+          <div class="kpi hl"><b>698</b><span>разборов в 600 ₽/день на deepseek (off)</span></div>
+          <div class="kpi gr"><b>×2,8</b><span>быстрее selective low vs full think:on</span></div>
+          <div class="kpi"><b>×5,7</b><span>дешевле kimi-k2.6 (0,86 vs 4,92 ₽)</span></div>
+        </div>
       </div>
-      <div class="bench-legend">
-        <div><b>1</b><p>агент: 0,73 ₽, 44 с, качество 87%</p></div>
-        <div><b>2</b><p>агент с размышлениями: 1,14 ₽, 125 с, 97%</p></div>
-        <div><b>3</b><p>один вызов: 0,27 ₽, 25 с, 81%</p></div>
-        <div><b>4</b><p>один вызов с размышлениями: 0,29 ₽, 31 с, 86%</p></div>
-        <div><b>5</b><p>без источников: 0,22 ₽, 21 с, 86%</p></div>
-      </div>
-    </div>
-    <div class="kpis">
-      <div class="kpi"><b>+0,46 ₽</b><span>агент дороже одного вызова, это цена инструментов, проверок и критика</span></div>
-      <div class="kpi"><b>+6 пп</b><span>правил проходит агент: 93% против 85% у одного вызова</span></div>
-      <div class="kpi hl"><b>×15</b><span>больше ссылок на источники: 15 против 1 без данных</span></div>
     </div>
   </div>
 </section>
 
-<!-- 3 -->
-<section class="slide" data-name="10-bench-reasoning">
-  <div class="top"><span class="tag">Замеры</span><span class="num">3 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
-  <h1>С размышлениями лучше, но втрое медленнее</h1>
-  <p class="lead">Один и тот же материал и один критик. У агента размышления поднимают качество, у одного вызова ломают структуру. Поэтому в примере выбран режим <b>без мышления</b>: 44 секунды против 125.</p>
+<!-- 3. Ранжирование ленты: ДО (отбор) vs ПОСЛЕ (финал) -->
+<section class="slide" data-name="10-bench-ranking">
+  <div class="top"><span class="tag">Замеры · ранжирование</span><span class="num">3 / 3</span><span class="brand"><i>А</i>Альфи</span></div>
+  <h1>Калибровка весов ленты: шум упал с 54% до 3,3%</h1>
+  <p class="lead">Воспроизводимый эталон: <b>80 размеченных пар</b> (5 компаний разных отраслей × 16 разнородных новостей: прямые отраслевые, макро, смежные, ретро-статистика, биржевой дайджест, лайфстайл) при пороге ленты 0,16.</p>
   <div class="body">
-    <div class="duo">
-      <div class="card pair">
-        <h3>Агент Альфи</h3>
-        <div class="rows">
-          <div class="row"><span>правила</span><i><b style="width:93%"></b></i><em>93%</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:96%"></b></i><em>96%</em></div>
-          <div class="row"><span>качество</span><i><b style="width:87%"></b></i><em>0,87</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:97%"></b></i><em>0,97</em></div>
-          <div class="row"><span>время</span><i><b style="width:35%"></b></i><em>44 с</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:100%"></b></i><em>125 с</em></div>
-          <div class="row"><span>цена</span><i><b style="width:64%"></b></i><em>0,73 ₽</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:100%"></b></i><em>1,14 ₽</em></div>
-          <div class="row"><span>ссылки</span><i><b style="width:100%"></b></i><em>15</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:78%"></b></i><em>12</em></div>
+    <div class="cols2">
+      <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; padding:26px 30px">
+        <div class="k">Метрики выдачи ДО (отборочная формула) и ПОСЛЕ (финал)</div>
+        <div class="mrows" style="gap:24px">
+          <div class="mrow">
+            <div class="lbl">Precision@5<span class="sub">доля важных (rel ≥ 2) в топ-5</span></div>
+            <div class="pairbar">
+              <div class="pb"><small>ДО</small><i><span style="width:76%;background:#B9BCC3"></span></i><em>76,0%</em></div>
+              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:92%;background:var(--red)"></span></i><em>92,0%</em></div>
+            </div>
+            <div class="delta pos">+16,0 п.п.</div>
+          </div>
+          <div class="mrow">
+            <div class="lbl">Шум в ленте ↓<span class="sub">FeedNoise (rel = 0 выше 0,16)</span></div>
+            <div class="pairbar">
+              <div class="pb"><small>ДО</small><i><span style="width:54%;background:#B9BCC3"></span></i><em>54,0%</em></div>
+              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:3.3%;background:var(--green)"></span></i><em>3,3%</em></div>
+            </div>
+            <div class="delta pos">-50,7 п.п.</div>
+          </div>
+          <div class="mrow">
+            <div class="lbl">Шум в топ-5 ↓<span class="sub">Noise@5 (нерелевантные в топ-5)</span></div>
+            <div class="pairbar">
+              <div class="pb"><small>ДО</small><i><span style="width:16%;background:#B9BCC3"></span></i><em>4,0%</em></div>
+              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:1%;background:var(--green)"></span></i><em>0,0%</em></div>
+            </div>
+            <div class="delta pos">-4,0 п.п.</div>
+          </div>
+          <div class="mrow">
+            <div class="lbl">NDCG@5<span class="sub">качество порядка первых 5</span></div>
+            <div class="pairbar">
+              <div class="pb"><small>ДО</small><i><span style="width:95.5%;background:#B9BCC3"></span></i><em>0,955</em></div>
+              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:97.0%;background:var(--red)"></span></i><em>0,970</em></div>
+            </div>
+            <div class="delta pos">+0,015</div>
+          </div>
+          <div class="mrow">
+            <div class="lbl">Diversity@5<span class="sub">различие лент разных компаний</span></div>
+            <div class="pairbar">
+              <div class="pb"><small>ДО</small><i><span style="width:71.0%;background:#B9BCC3"></span></i><em>0,710</em></div>
+              <div class="pb"><small>ПОСЛЕ</small><i><span style="width:73.6%;background:var(--ink)"></span></i><em>0,736</em></div>
+            </div>
+            <div class="delta pos">+0,025</div>
+          </div>
         </div>
-        <p class="note">Позиция банка есть в 3 из 3 разборов в обоих режимах.</p>
+        <p class="note">HitRate@3 = 1,000 и MRR = 1,000 в обеих версиях: критическое отраслевое событие всегда на 1-м месте.</p>
       </div>
-      <div class="card pair">
-        <h3>Один вызов модели</h3>
-        <div class="rows">
-          <div class="row"><span>правила</span><i><b style="width:85%"></b></i><em>85%</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:67%"></b></i><em>67%</em></div>
-          <div class="row"><span>качество</span><i><b style="width:81%"></b></i><em>0,81</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:86%"></b></i><em>0,86</em></div>
-          <div class="row"><span>позиция банка</span><i><b style="width:100%"></b></i><em>3 / 3</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:0%"></b></i><em>0 / 3</em></div>
-          <div class="row"><span>время</span><i><b style="width:25%"></b></i><em>25 с</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:31%"></b></i><em>31 с</em></div>
-          <div class="row"><span>ссылки</span><i><b style="width:47%"></b></i><em>7</em></div>
-          <div class="row"><span>с размышлениями</span><i><b class="on" style="width:60%"></b></i><em>9</em></div>
+
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div class="card" style="flex:1">
+          <div class="k">Какие перекосы нашли и исправили на данных</div>
+          <div class="list">
+            <div class="li"><i>1</i><div><b>Чужие отраслевые решения регулятора:</b> раньше акциз на напитки или лимиты ипотеки пробивались в топ-5 топливщика и зернотрейдера как «макро». Теперь при явном чужом секторе срабатывает штраф масштаба (×0,25 / ×0,20).</div></div>
+            <div class="li"><i>2</i><div><b>Узкий ОКВЭД вместо общей отрасли:</b> добавлен бонус <code>subsector (+0,28)</code> — зернотрейдеру события про зерно и фрахт важнее заметки про картофель в «Магните».</div></div>
+            <div class="li"><i>3</i><div><b>Ненасыщаемый фактор и столичное гео:</b> убывающая сумма факторов убрала завышение биржевых сводок, а Москва/СПб дают мягкий бонус (+0,06) только при отраслевой связи.</div></div>
+            <div class="li"><i>4</i><div><b>Шкала значимости и ретро-новости:</b> расширен диапазон значимости (0,45–1,60) и снижен вес статистики за прошлый год.</div></div>
+          </div>
         </div>
-        <p class="note">Размышления дают более связный текст, но модель перестаёт следовать схеме и цитировать аналитику банка.</p>
+        <div class="verdict"><b>Результат.</b> Средний размер ленты очистился от случайных совпадений: в выдаче остаются только прямые отраслевые и реальные макрособытия (ЦБ, налоги), а мусор в топ-5 сведён к <b>0,0%</b>.</div>
       </div>
     </div>
-    <div class="verdict"><b>Вывод.</b> Размышления дают лучший результат: 96% правил и 0,97 у критика против 93% и 0,87. Но такой разбор идёт 125 секунд и стоит 1,14 ₽ вместо 44 секунд и 0,73 ₽. Для примера выбрали быстрый режим, а размышления оставили на случай, когда важнее максимальная аккуратность.</div>
   </div>
 </section>
 

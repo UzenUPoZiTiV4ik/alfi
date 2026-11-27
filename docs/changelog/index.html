@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Альфи · что изменилось к финалу</title>
+<meta name="viewport" content="width=1600">
+<!--
+  Changelog-карточки к финалу. Каждый .slide рендерится в PNG 3200×2000:
+  node docs/diagrams/render.js docs/changelog/index.html docs/changelog
+-->
+<style>
+  :root {
+    --red: #EF3124;
+    --red-soft: #FDECEA;
+    --ink: #0B0B0C;
+    --text: #1C1D20;
+    --muted: #6D7076;
+    --line: #C9CBD0;
+    --bg: #F3F4F5;
+    --fill: #EAEBED;
+    --green: #2E8A3A;
+    --green-soft: #E6F3E8;
+    --amber: #9A6200;
+    --dark: #151517;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background: #D9DADD; color: var(--text); -webkit-font-smoothing: antialiased; }
+
+  /* Каркас слайда (как в docs/diagrams/bench.html) */
+  .slide { position: relative; width: 1600px; height: 1000px; margin: 40px auto; padding: 60px 72px 56px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; gap: 12px; padding-right: 200px; }
+  .tag { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 10px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; }
+  .num { font-size: 15px; font-weight: 600; color: var(--muted); }
+  h1 { margin-top: 20px; font-size: 46px; line-height: 1.07; font-weight: 800; letter-spacing: -.03em; color: var(--ink); max-width: 1220px; }
+  h1.s44 { font-size: 44px; }
+  .lead { margin-top: 12px; font-size: 19px; line-height: 1.45; color: var(--muted); max-width: 1150px; }
+  .lead b { color: var(--ink); font-weight: 650; }
+  .corner { position: absolute; right: 40px; top: 26px; width: 190px; height: 190px; pointer-events: none; }
+  .corner img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .body { flex: 1; min-height: 0; margin-top: 30px; }
+
+  /* Общие карточки */
+  .card { background: #fff; border-radius: 26px; padding: 24px 28px; min-width: 0; }
+  .card.dark { background: var(--dark); color: #fff; }
+  .k { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .card.dark .k { color: rgba(255,255,255,.5); }
+  .h { margin-top: 10px; font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; color: var(--ink); }
+  .card.dark .h { color: #fff; }
+  .p { margin-top: 8px; font-size: 15px; line-height: 1.45; color: var(--muted); }
+  .p b { color: var(--ink); font-weight: 650; }
+  .card.dark .p { color: rgba(255,255,255,.66); }
+  .card.dark .p b { color: #fff; }
+  code, .mono { font: 600 14px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .02em; text-transform: none; white-space: nowrap; }
+  .pill.was { background: var(--fill); color: var(--muted); }
+  .pill.now { background: var(--red); color: #fff; }
+  .pill.ok { background: var(--green-soft); color: var(--green); }
+  .card.dark .pill.was { background: rgba(255,255,255,.1); color: rgba(255,255,255,.7); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 9px; background: var(--bg); color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .chip.red { background: var(--red-soft); color: #C21F14; }
+  .chip.code { font: 600 13.5px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+  .chip.new { background: var(--red); color: #fff; }
+  .card.dark .chip { background: rgba(255,255,255,.09); color: #fff; }
+  .card.dark .chip.red { background: rgba(239,49,36,.2); color: #FF8A80; }
+
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .kpi { background: #fff; border-radius: 22px; padding: 20px 24px; min-width: 0; }
+  .kpi b { display: block; font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .kpi span { display: block; margin-top: 8px; font-size: 14.5px; line-height: 1.4; color: var(--muted); }
+  .kpi.hl b { color: var(--red); }
+  .kpi.dark { background: var(--dark); }
+  .kpi.dark b { color: #fff; }
+  .kpi.dark span { color: rgba(255,255,255,.62); }
+
+  .legend { display: flex; gap: 18px; font-size: 13.5px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+
+  /* ===== Слайд 1 ===== */
+  .s1 { display: grid; grid-template-columns: 650px 1fr; gap: 18px; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
+  .quote { margin-top: 10px; font-size: 16.5px; line-height: 1.45; color: var(--text); }
+  .formula { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .formula .t { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; font-size: 15px; font-weight: 650; white-space: nowrap; }
+  .formula .t.hot { background: var(--red); }
+  .formula .o { font-size: 20px; font-weight: 700; color: rgba(255,255,255,.5); }
+  .fines { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .fines > span:first-child { font-size: 13.5px; font-weight: 700; color: rgba(255,255,255,.5); margin-right: 3px; }
+  .ingest-card { flex: 1; display: flex; flex-direction: column; }
+  .ingest { margin-top: 16px; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; align-content: space-evenly; }
+  .ingest div { display: grid; grid-template-columns: 34px 1fr; gap: 2px 12px; align-items: start; }
+  .ingest i { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; background: var(--red-soft); color: var(--red); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 800; }
+  .ingest b { font-size: 16.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .ingest span { font-size: 14px; line-height: 1.38; color: var(--muted); }
+  .ingest .wide { grid-column: span 2; }
+
+  .metrics-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .metrics-card { flex: 1; display: flex; flex-direction: column; }
+  .mrows { margin-top: 16px; flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; }
+  .mrow { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }
+  .mname b { display: block; font-size: 17px; font-weight: 700; color: var(--ink); }
+  .mname span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+  .mname .delta { display: inline-flex; margin-top: 5px; }
+  .delta { display: inline-flex; align-items: center; height: 22px; margin-top: 5px; padding: 0 8px; border-radius: 7px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .series { display: grid; gap: 6px; }
+  .bar { display: grid; grid-template-columns: 52px 1fr 66px; gap: 12px; align-items: center; }
+  .s1 .bar i { height: 18px; }
+  .bar b { font-size: 13px; font-weight: 650; color: var(--muted); text-align: right; }
+  .bar i { display: block; height: 16px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+  .bar i span { display: block; height: 100%; min-width: 4px; border-radius: 6px; }
+  .bar em { font-style: normal; font-size: 15px; font-weight: 750; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+  .bar.was span { background: #C5C7CB; }
+  .bar.was em { color: var(--muted); }
+  .bar.now span { background: var(--red); }
+
+  /* ===== Слайд 2 ===== */
+  .s2 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 16px; height: 100%; }
+  .s2 .card { display: flex; flex-direction: column; }
+  .field { margin-top: 12px; display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: start; }
+  .field > code { padding-top: 7px; color: #C21F14; }
+  .foot { margin-top: auto; padding-top: 12px; font-size: 14px; line-height: 1.4; color: var(--muted); }
+  .foot b { color: var(--ink); }
+  .card.dark .foot { color: rgba(255,255,255,.62); }
+  .card.dark .foot b { color: #fff; }
+  .chips.tight { gap: 6px; }
+  .chips.tight .chip { padding: 0 9px; font-size: 13.5px; }
+  .src { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+  .src div { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--text); }
+  .src div i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+  .axes { margin-top: 12px; }
+  .axes .chip { height: 27px; font-size: 13px; padding: 0 9px; }
+
+  .banner { margin-top: 14px; border-radius: 14px; padding: 12px 14px; background: linear-gradient(90deg, #FFF3CD, #FDE2DF); border: 1.5px solid #F2B8A8; color: #5A2A12; }
+  .banner b { display: flex; align-items: center; gap: 8px; font-size: 15.5px; font-weight: 800; color: #B5261A; }
+  .banner b::before { content: "!"; width: 20px; height: 20px; border-radius: 50%; background: #E3A008; color: #fff; display: grid; place-items: center; font-size: 13px; }
+  .banner span { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.4; }
+  .gate { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gate div { border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.07); }
+  .gate code { display: block; color: #fff; font-size: 13.5px; }
+  .gate span { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.6); }
+  .gate .g code { color: #7FD48A; }
+  .gate .r code { color: #FF8A80; }
+  .conf { margin-top: 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: rgba(255,255,255,.6); }
+  .conf i { display: block; position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .conf i span { position: absolute; left: 0; top: 0; bottom: 0; width: 55%; border-radius: 5px; background: linear-gradient(90deg, #E3A008, var(--red)); }
+  .conf em { font-style: normal; font-weight: 800; color: #fff; font-size: 14px; }
+
+  .split { margin-top: 12px; display: grid; grid-template-columns: 0.8fr 1.7fr 0.9fr; gap: 6px; }
+  .split div { border-radius: 10px; padding: 9px 8px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.25; }
+  .split .f { background: var(--bg); color: var(--ink); }
+  .split .b { background: var(--red-soft); color: #C21F14; }
+  .split .a { background: var(--ink); color: #fff; }
+
+  .bug { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .bug div { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: center; border-radius: 12px; padding: 10px 12px; }
+  .bug .x { background: var(--red-soft); }
+  .bug .v { background: var(--green-soft); }
+  .bug .pill { justify-self: start; }
+  .bug .x .pill { background: #fff; color: #C21F14; }
+  .bug .v .pill { background: #fff; color: var(--green); }
+  .bug p { font-size: 14px; line-height: 1.35; color: var(--text); }
+  .bug s { color: #C21F14; text-decoration-thickness: 2px; }
+
+  .fb { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+  .fbrow { display: grid; grid-template-columns: 1fr 74px 74px; gap: 8px; align-items: center; padding: 0 10px; }
+  .fbrow.hd span { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: right; }
+  .fbrow.hd span:first-child { text-align: left; }
+  .fbrow code { font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+  .fbrow code small { font: 600 12px/1 Inter, -apple-system, sans-serif; color: var(--muted); margin-left: 4px; }
+  .fbrow em { font-style: normal; text-align: right; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .fbrow em.g { color: var(--green); }
+  .fbrow em.r { color: var(--red); }
+  .fbrow.lead-row { background: var(--bg); border-radius: 10px; padding: 8px 10px; }
+  .fbrow.rest code, .fbrow.rest em { color: var(--muted); font-size: 14px; }
+
+  /* ===== Слайд 3 ===== */
+  .s3 { display: grid; grid-template-columns: 1fr 640px; gap: 18px; height: 100%; }
+  .s3 .col > .card { flex: 1; display: flex; flex-direction: column; }
+  .roles { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .roles div { border-radius: 12px; padding: 10px 12px; background: var(--bg); }
+  .roles div:first-child { background: var(--red-soft); }
+  .roles b { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .roles code { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .roles div:first-child b { color: #C21F14; }
+  .threads { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .threads > div { border-radius: 12px; padding: 10px 12px; background: var(--bg); display: flex; flex-direction: column; gap: 5px; }
+  .threads code { font-size: 13px; color: var(--ink); }
+  .threads .refs { display: flex; gap: 5px; flex-wrap: wrap; }
+  .threads .refs span { font: 600 12px/1 ui-monospace, Menlo, monospace; height: 22px; padding: 0 7px; border-radius: 6px; background: #fff; color: #C21F14; display: inline-flex; align-items: center; }
+  .flow { margin-top: 12px; display: flex; align-items: stretch; gap: 6px; }
+  .flow div { flex: 1; border-radius: 12px; padding: 9px 10px; background: var(--bg); min-width: 0; }
+  .flow div.hot { background: var(--red-soft); }
+  .flow b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
+  .flow span { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+  .flow i { flex: none; align-self: center; font-style: normal; font-size: 16px; font-weight: 800; color: var(--red); }
+
+  .arch { display: flex; flex-direction: column; height: 100%; padding: 26px 30px; }
+  .arch-flow { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .ast { margin-top: 14px; border-radius: 14px; padding: 14px 16px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); }
+  .ast code { color: #fff; font-size: 14px; }
+  .ast ul { margin-top: 8px; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .ast li { font-size: 14px; line-height: 1.35; color: rgba(255,255,255,.72); }
+  .ast li::before { content: "✓"; margin-right: 8px; font-weight: 800; color: #7FD48A; }
+  .lane { margin-top: 12px; border-radius: 18px; padding: 16px 18px; }
+  .lane.was { background: rgba(255,255,255,.05); border: 1.5px dashed rgba(255,255,255,.22); }
+  .lane .ttl { display: flex; align-items: center; gap: 10px; }
+  .lane .ttl code { color: #fff; font-size: 16px; }
+  .lane .ttl span { font-size: 13px; color: rgba(255,255,255,.55); }
+  .mono-box { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .mono-box span { height: 28px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 650; background: rgba(239,49,36,.18); color: #FF8A80; }
+  .mono-box span.ok { background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); }
+  .down { margin: 10px 0 0; text-align: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.5); }
+  .down b { color: var(--red); font-size: 18px; margin-right: 6px; }
+  .layers { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .thin { border-radius: 14px; padding: 12px 14px; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .thin code { color: var(--ink); font-size: 15.5px; }
+  .thin span { font-size: 13px; color: var(--muted); }
+  .mods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .mods div { border-radius: 12px; padding: 10px 11px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.12); }
+  .mods code { display: block; color: #fff; font-size: 13.5px; }
+  .mods span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; color: rgba(255,255,255,.58); }
+  .proof { padding-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .proof div { border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.06); }
+  .proof b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: #fff; line-height: 1; }
+  .proof b.g { color: #7FD48A; }
+  .proof span { display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.6); }
+
+  /* ===== Слайд 4 ===== */
+  .s4 { display: flex; flex-direction: column; gap: 18px; height: 100%; }
+  .shots { display: grid; grid-template-columns: 1fr 56px 1fr; align-items: center; }
+  .frame { background: #fff; border-radius: 22px; overflow: hidden; box-shadow: 0 1px 0 rgba(11,11,12,.04), 0 14px 34px -18px rgba(11,11,12,.28); }
+  .frame.after { box-shadow: 0 0 0 3px var(--red), 0 18px 40px -18px rgba(239,49,36,.45); }
+  .chrome { height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #ECEDEF; }
+  .dots { display: flex; gap: 6px; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; background: #D5D7DB; }
+  .url { flex: 1; height: 26px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; padding: 0 10px; font: 600 12.5px/1 ui-monospace, Menlo, monospace; color: var(--muted); min-width: 0; }
+  .badge { height: 28px; padding: 0 12px; border-radius: 9px; display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 800; letter-spacing: .01em; white-space: nowrap; }
+  .badge.was { background: #E3E4E7; color: #55585E; }
+  .badge.now { background: var(--red); color: #fff; }
+  .shot { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; background: var(--bg); }
+  .arrow { justify-self: center; width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 800; box-shadow: 0 6px 16px -6px rgba(239,49,36,.6); }
+  .changes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; flex: 1; min-height: 0; }
+  .chg { background: #fff; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .chg .head { display: flex; align-items: center; gap: 10px; }
+  .chg .was-line { margin-top: auto; padding-top: 12px; border-top: 1px solid #ECEDEF; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .chg .was-line i { font-style: normal; font-weight: 800; color: #8E9197; margin-right: 4px; }
+  .chg .n { flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--red-soft); color: var(--red); display: grid; place-items: center; font-size: 13.5px; font-weight: 800; }
+  .chg b { font-size: 16px; line-height: 1.25; font-weight: 750; color: var(--ink); letter-spacing: -.01em; }
+  .chg > span { font-size: 15.5px; line-height: 1.42; color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- 1. Ранжирование и конвейер новостей -->
+<section class="slide" data-name="01-ranking-news">
+  <div class="top"><span class="tag">Замечание жюри №1</span><span class="num">1 / 4</span></div>
+  <h1>Ранжирование и конвейер новостей</h1>
+  <p class="lead">Проверили веса на размеченных данных и откалибровали формулу. На эталоне из <b>80 пар</b> (5 компаний × 16 новостей) точность топ-5 выросла <b>с 76% до 92%</b>, а шум в ленте упал <b>с 54% до 3,3%</b>.</p>
+  <span class="corner" data-cat="sales"></span>
+  <div class="body s1">
+    <div class="col">
+      <div class="card">
+        <div class="k"><span class="pill was">Было</span>замечание жюри</div>
+        <p class="quote">Проверить веса и качество ранжирования на данных, убрать смешение чужих отраслей, обеспечить консистентность дат, разметки и кэша.</p>
+      </div>
+      <div class="card dark">
+        <div class="k"><span class="pill now">Стало</span>калиброванная формула</div>
+        <div class="formula">
+          <span class="o">(</span>
+          <span class="t">отрасль</span><span class="o">+</span>
+          <span class="t">ОКВЭД</span><span class="o">+</span>
+          <span class="t">факторы с убывающим вкладом</span><span class="o">+</span>
+          <span class="t">мягкое гео для столиц</span>
+          <span class="o">)</span>
+          <span class="o">×</span><span class="t hot">значимость</span>
+          <span class="o">×</span><span class="t hot">тип</span>
+          <span class="o">×</span><span class="t hot">масштаб</span>
+        </div>
+        <div class="fines">
+          <span>Штрафы:</span>
+          <span class="chip red">чужие отрасли</span>
+          <span class="chip red">лайфстайл</span>
+          <span class="chip red">биржевые сводки</span>
+          <span class="chip red">ретро-годы</span>
+        </div>
+      </div>
+      <div class="card ingest-card">
+        <div class="k"><span class="pill now">Стало</span>сбор новостей</div>
+        <div class="ingest">
+          <div><i>16</i><b>RSS-лент</b><span>добавили ПРАЙМ и Forbes</span></div>
+          <div><i>U</i><b>Чистые URL</b><span>UTM-метки вырезаются</span></div>
+          <div><i>Д</i><b>Строгие даты</b><span>dates.py: отсев 2099 и неполных дат</span></div>
+          <div><i>К</i><b>Кластеры ≤ 48 ч</b><span>с защитой от конфликта цифр</span></div>
+          <div class="wide"><i>#</i><b>Транзакционный сброс кэша</b><span>при смене content_hash в одной транзакции сбрасываются triage и insights</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card metrics-card">
+        <div class="metrics-head">
+          <div class="k">Замер на эталоне · 80 пар</div>
+          <div class="legend"><span><i style="background:#C5C7CB"></i>было</span><span><i style="background:var(--red)"></i>стало</span></div>
+        </div>
+        <div class="mrows">
+          <div class="mrow">
+            <div class="mname"><b>Precision@5</b><span class="delta">+16 п.п.</span></div>
+            <div class="series">
+              <div class="bar was"><b>было</b><i><span style="width:76%"></span></i><em>76%</em></div>
+              <div class="bar now"><b>стало</b><i><span style="width:92%"></span></i><em>92%</em></div>
+            </div>
+          </div>
+          <div class="mrow">
+            <div class="mname"><b>Шум в топ-5</b><span>Noise@5, меньше = лучше</span></div>
+            <div class="series">
+              <div class="bar was"><b>было</b><i><span style="width:4%"></span></i><em>4%</em></div>
+              <div class="bar now"><b>стало</b><i><span style="width:0%"></span></i><em>0%</em></div>
+            </div>
+          </div>
+          <div class="mrow">
+            <div class="mname"><b>Шум в ленте</b><span class="delta">−50,7 п.п.</span></div>
+            <div class="series">
+              <div class="bar was"><b>было</b><i><span style="width:54%"></span></i><em>54,0%</em></div>
+              <div class="bar now"><b>стало</b><i><span style="width:3.3%"></span></i><em>3,3%</em></div>
+            </div>
+          </div>
+          <div class="mrow">
+            <div class="mname"><b>NDCG@5</b><span>качество порядка в топе</span></div>
+            <div class="series">
+              <div class="bar was"><b>было</b><i><span style="width:95.5%"></span></i><em>0,955</em></div>
+              <div class="bar now"><b>стало</b><i><span style="width:97%"></span></i><em>0,970</em></div>
+            </div>
+          </div>
+          <div class="mrow">
+            <div class="mname"><b>Разнообразие</b><span>не один фактор на всю ленту</span></div>
+            <div class="series">
+              <div class="bar was"><b>было</b><i><span style="width:71%"></span></i><em>0,710</em></div>
+              <div class="bar now"><b>стало</b><i><span style="width:73.6%"></span></i><em>0,736</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi hl"><b>92%</b><span>новостей в топ-5 действительно про компанию</span></div>
+        <div class="kpi"><b>0%</b><span>чужих отраслей в топ-5 вместо 4%</span></div>
+        <div class="kpi dark"><b>3,3%</b><span>шума во всей ленте вместо 54,0%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Точность разборов -->
+<section class="slide" data-name="02-insight-quality">
+  <div class="top"><span class="tag">Замечания жюри №2 и №3</span><span class="num">2 / 4</span></div>
+  <h1 class="s44">Точность разборов, анти-галлюцинации и статус готовности</h1>
+  <p class="lead">Разбор больше не переносит рост рынка на компанию, не путает источники и даты, а спорное <b>честно помечает</b>.</p>
+  <span class="corner" data-cat="tax"></span>
+  <div class="body s2">
+    <div class="card">
+      <div class="k">Без overclaim</div>
+      <div class="h">Рост рынка ≠ рост компании</div>
+      <div class="field"><code>conditions</code><div class="chips tight"><span class="chip">мощности</span><span class="chip">квоты</span><span class="chip">логистика</span><span class="chip">регион</span></div></div>
+      <div class="field"><code>scope</code><div class="chips"><span class="chip code">market</span><span class="chip code">sector</span><span class="chip code">company</span></div></div>
+      <p class="foot">Оба поля <b>обязательны</b> у каждой возможности. Вывод про компанию без условий ловит <b>автопроверка overclaim</b>.</p>
+    </div>
+    <div class="card">
+      <div class="k">Точность источников</div>
+      <div class="h">Смысл, субъект и даты не путаются</div>
+      <div class="src">
+        <div><i style="background:#0B0B0C"></i>Прогноз ЦБ отдельно</div>
+        <div><i style="background:var(--red)"></i>Альфа-Банк разных дат не склеивается</div>
+        <div><i style="background:#C5C7CB"></i>СМИ не выдаются за позицию банка</div>
+      </div>
+      <div class="chips axes">
+        <span class="chip">grounding</span><span class="chip">personalization</span><span class="chip">depth</span><span class="chip">attribution</span><span class="chip new">+ source_fidelity</span><span class="chip new">+ no_overclaim</span>
+      </div>
+      <p class="foot"><b>6-осевой кросс-критик</b> и повторная проверка после доработки.</p>
+    </div>
+    <div class="card dark">
+      <div class="k">Гейт готовности</div>
+      <div class="banner"><b>Требует проверки</b><span>Остались противоречия или неподтверждённые цифры</span></div>
+      <div class="gate">
+        <div class="g"><code>ready</code><span>всё сошлось, разбор готов</span></div>
+        <div class="r"><code>needs_review</code><span>не выдаётся как готовый</span></div>
+      </div>
+      <div class="conf"><span>уверенность</span><i><span></span></i><em>≤ 55%</em></div>
+      <p class="foot">Если после доработки остались противоречия, разбор <b>не выдаётся как готовый</b>: баннер с причинами сверху.</p>
+    </div>
+    <div class="card">
+      <div class="k">Прозрачность</div>
+      <div class="h">Все источники со ссылками</div>
+      <div class="chips" style="margin-top:12px"><span class="chip code red">news:*</span><span class="chip code red">web:*</span><span class="chip code red">bank:*</span><span class="chip code red">user:*</span><span class="chip">+ URL у каждого</span></div>
+      <div class="split"><div class="f">Факты</div><div class="b">Позиция Альфа-Банка</div><div class="a">Вывод AI</div></div>
+      <p class="foot">Сохраняются <b>все</b> дополнительные источники, сверху явный дисклеймер.</p>
+    </div>
+    <div class="card">
+      <div class="k">Баг парсера</div>
+      <div class="h">Дата больше не «число»</div>
+      <div class="bug">
+        <div class="x"><span class="pill">было</span><p><code>23.10.2026</code> → <s>неподтверждённое число 23.1</s></p></div>
+        <div class="v"><span class="pill">стало</span><p><code>23.10.2026</code> → распознаётся как дата</p></div>
+      </div>
+      <p class="foot">Ложные тревоги проверки цифр <b>ушли</b>, гейт срабатывает только по делу.</p>
+    </div>
+    <div class="card">
+      <div class="k">Alfi-FaithBench</div>
+      <div class="h">18 ловушек × 6 моделей</div>
+      <div class="fb">
+        <div class="fbrow hd"><span>модель</span><span>галлюц.</span><span>ловушки</span></div>
+        <div class="fbrow lead-row"><code>glm-5.3-flash<small>off/low</small></code><em class="g">0%</em><em class="r">100%</em></div>
+        <div class="fbrow lead-row"><code>deepseek-v4.1-flash<small>on</small></code><em class="g">0%</em><em class="r">100%</em></div>
+        <div class="fbrow rest"><code>ещё 13 режимов</code><em>6–72%</em><em>22–94%</em></div>
+      </div>
+      <p class="foot">16 конфигураций (off/low/on), кросс-судья. <b style="white-space:nowrap">glm-5.3-flash</b> работает критиком.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Чат и архитектура -->
+<section class="slide" data-name="03-chat-architecture">
+  <div class="top"><span class="tag">Замечания жюри №4 и №5</span><span class="num">3 / 4</span></div>
+  <h1>Чат по событию, уточнения и чистые слои сервера</h1>
+  <p class="lead">Чат не смешивает компании и события, уточнения клиента важнее всего, а сервер разложен по слоям.</p>
+  <span class="corner" data-cat="people"></span>
+  <div class="body s3">
+    <div class="col">
+      <div class="card">
+        <div class="k">Без смешения компаний</div>
+        <div class="h">Четыре роли разведены в инструментах и промптах</div>
+        <div class="roles">
+          <div><b>Компания клиента</b><code>get_company_profile</code></div>
+          <div><b>Компании из новостей</b><code>news:*</code></div>
+          <div><b>Контрагенты</b><code>get_counterparties</code></div>
+          <div><b>Группа</b><code>get_group_structure</code></div>
+        </div>
+        <p class="foot">Сторонняя компания из новости больше <b>не выдаётся</b> за клиента или его контрагента.</p>
+      </div>
+      <div class="card">
+        <div class="k">Чат привязан к событию</div>
+        <div class="h">Ключ диалога: <code style="font-size:18px">helper + news_id</code></div>
+        <div class="threads">
+          <div><code>CFO · событие A</code><div class="refs"><span>[news:*]</span><span>[bank:*]</span></div></div>
+          <div><code>CFO · событие B</code><div class="refs"><span>[news:*]</span><span>[user:*]</span></div></div>
+        </div>
+        <p class="foot">Разные события не смешивают диалоги, сноски восстанавливаются <b>из истории БД</b>.</p>
+      </div>
+      <div class="card">
+        <div class="k">Уточнения пользователя</div>
+        <div class="h">user:* с высшим приоритетом</div>
+        <div class="flow">
+          <div><b>Чат или форма</b><span>в окне разбора</span></div><i>→</i>
+          <div class="hot"><b>user:*</b><span>главнее остальных</span></div><i>→</i>
+          <div><b>verify</b><span>11-е правило</span></div><i>→</i>
+          <div><b>Новый кэш</b><span>clarification_hash</span></div>
+        </div>
+        <p class="foot">Уточнение меняет хэш, и разбор <b>пересобирается</b> с учётом новых фактов.</p>
+      </div>
+    </div>
+    <div class="card dark arch">
+      <div class="k">Архитектура слоёв</div>
+      <div class="arch-flow">
+      <div class="lane was">
+        <div class="ttl"><span class="pill was">Было</span><code>main.py</code><span>монолит</span></div>
+        <div class="mono-box"><span class="ok">HTTP</span><span>прямой SQL</span><span>threading</span><span>веса ранжирования</span><span>сбор новостей</span></div>
+      </div>
+      <div class="down"><b>↓</b>разнесли по модулям</div>
+      <div class="layers">
+        <div class="thin"><div style="display:flex;align-items:center;gap:10px"><span class="pill now">Стало</span><code>main.py</code></div><span>только HTTP и SSE</span></div>
+        <div class="mods">
+          <div><code>ingest.py</code><span>сбор, URL, кэш</span></div>
+          <div><code>feedback.py</code><span>веса отклика</span></div>
+          <div><code>dates.py</code><span>строгие даты</span></div>
+          <div><code>db.py</code><span>весь SQL</span></div>
+        </div>
+      </div>
+      <div class="ast">
+        <code>AST-тест слоёв</code>
+        <ul>
+          <li>разбирает код main.py, а не ищет строки</li>
+          <li>падает, если туда вернётся прямой SQL или threading</li>
+        </ul>
+      </div>
+      </div>
+      <div class="proof">
+        <div><b>0</b><span>прямого SQL в main.py</span></div>
+        <div><b>0</b><span>threading в main.py</span></div>
+        <div><b class="g">57</b><span>зелёных тестов, включая AST-тест слоёв</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Интерфейс до и после -->
+<section class="slide" data-name="04-ui-before-after">
+  <div class="top"><span class="tag">Интерфейс</span><span class="num">4 / 4</span></div>
+  <h1>Обновление интерфейса: главный экран ДО и ПОСЛЕ</h1>
+  <p class="lead">После отбора над интерфейсом провели <b>отдельную дизайн-итерацию</b>: главное видно сразу, лента ищется и считается.</p>
+  <span class="corner" data-cat="alfi"></span>
+  <div class="body s4">
+    <div class="shots">
+      <div class="frame">
+        <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><span class="badge was">ДО · отборочная версия</span><div class="url">alfi / лента</div></div>
+        <img class="shot" src="ui-before.png" alt="Главный экран до редизайна">
+      </div>
+      <div class="arrow">→</div>
+      <div class="frame after">
+        <div class="chrome"><div class="dots"><i></i><i></i><i></i></div><span class="badge now">ПОСЛЕ · обновлённый UI</span><div class="url">alfi / лента</div></div>
+        <img class="shot" src="ui-after.png" alt="Главный экран после редизайна">
+      </div>
+    </div>
+    <div class="changes">
+      <div class="chg"><div class="head"><span class="n">1</span><b>Карточка «Главное сейчас»</b></div><span>Ключевые цифры события прямо в карточке и карусель «1 из 3»</span><p class="was-line"><i>ДО</i>одно событие и шаг, без ключевых цифр</p></div>
+      <div class="chg"><div class="head"><span class="n">2</span><b>«Все 24» и поиск</b></div><span>Вкладка по умолчанию, «Найти событие» и живой счётчик вместо бесконечного спиннера</span><p class="was-line"><i>ДО</i>старт с «Рисков», без поиска, вечный спиннер</p></div>
+      <div class="chg"><div class="head"><span class="n">3</span><b>«Команда Альфи»</b></div><span>Спокойные пилюли-счётчики, режим доставки, контрастная кнопка чата</span><p class="was-line"><i>ДО</i>яркие красные кружки-счётчики</p></div>
+      <div class="chg"><div class="head"><span class="n">4</span><b>Карточки и сводка</b></div><span>Иконки источников, кнопка «Полезно», срочность и легенда «во вред / на пользу»</span><p class="was-line"><i>ДО</i>метка «Риск» и источник простым текстом</p></div>
+    </div>
+  </div>
+</section>
+
+<script src="../../web/js/mascot.js"></script>
+<script src="../../web/js/mascot-reference.js"></script>
+<script>
+  // Маскот в углу: та же 3D-модель, что на сайте (синхронный рендер в data URL)
+  (function () {
+    const mascot = window.Mascot;
+    document.querySelectorAll('[data-cat]').forEach((el) => {
+      const src = mascot && mascot.img ? mascot.img(el.dataset.cat, 380) : '';
+      if (!src) {
+        return;
+      }
+      const image = new Image();
+      image.alt = '';
+      image.src = src;
+      el.appendChild(image);
+    });
+    document.body.dataset.ready = '1';
+  })();
+</script>
+</body>
+</html>

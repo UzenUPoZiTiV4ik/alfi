@@ -11,241 +11,240 @@
 <style>
   :root {
     --red: #EF3124;
-    --red-soft: #FDECEA;
-    --ink: #0B0B0C;
-    --text: #1C1D20;
+    --red-ink: #C21F14;
+    --red-soft: #FBD3CF;
+    --red-wash: #FDF0EE;
+    --ink: #1A1A1C;
     --muted: #6D7076;
-    --line: #C9CBD0;
+    --hair: rgba(26, 26, 28, .1);
     --bg: #F3F4F5;
-    --fill: #EAEBED;
-    --green: #2E8A3A;
-    --green-soft: #E6F3E8;
-    --amber: #9A6200;
-    --dark: #151517;
+    --was: #C5C7CB;
+    --noise: #E3E4E7;
+    --text: #1C1D20;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; background: #D9DADD; color: var(--text); -webkit-font-smoothing: antialiased; }
 
-  /* Каркас слайда (как в docs/diagrams/bench.html) */
-  .slide { position: relative; width: 1600px; height: 1000px; margin: 40px auto; padding: 60px 72px 56px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; }
-  .top { display: flex; align-items: center; gap: 12px; padding-right: 200px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif;
+    background: #D9DADD;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, .mono { font: 650 14px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
+
+  /* ---------- Каркас слайда ---------- */
+  .slide {
+    position: relative;
+    width: 1600px;
+    height: 1000px;
+    margin: 40px auto;
+    padding: 52px 72px 48px;
+    background: var(--bg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top { display: flex; align-items: center; gap: 12px; }
   .tag { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 10px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; }
   .num { font-size: 15px; font-weight: 600; color: var(--muted); }
-  h1 { margin-top: 20px; font-size: 46px; line-height: 1.07; font-weight: 800; letter-spacing: -.03em; color: var(--ink); max-width: 1220px; }
-  h1.s44 { font-size: 44px; }
-  .lead { margin-top: 12px; font-size: 19px; line-height: 1.45; color: var(--muted); max-width: 1150px; }
+  h1 { margin-top: 16px; font-size: 44px; line-height: 1.07; font-weight: 800; letter-spacing: -.03em; }
+  .ask { margin-top: 12px; max-width: 1290px; font-size: 18px; line-height: 1.45; }
+  .ask + .ask { margin-top: 4px; }
+  .ask.sm { font-size: 16px; line-height: 1.42; }
+  .ask span { color: var(--muted); }
+  .lead { margin-top: 12px; max-width: 1150px; font-size: 19px; line-height: 1.45; color: var(--muted); }
   .lead b { color: var(--ink); font-weight: 650; }
-  .corner { position: absolute; right: 40px; top: 26px; width: 190px; height: 190px; pointer-events: none; }
+  .corner { position: absolute; right: 40px; top: 18px; width: 170px; height: 170px; pointer-events: none; }
   .corner img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .body { flex: 1; min-height: 0; margin-top: 30px; }
 
-  /* Общие карточки */
-  .card { background: #fff; border-radius: 26px; padding: 24px 28px; min-width: 0; }
-  .card.dark { background: var(--dark); color: #fff; }
-  .k { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-  .card.dark .k { color: rgba(255,255,255,.5); }
-  .h { margin-top: 10px; font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; color: var(--ink); }
-  .card.dark .h { color: #fff; }
-  .p { margin-top: 8px; font-size: 15px; line-height: 1.45; color: var(--muted); }
-  .p b { color: var(--ink); font-weight: 650; }
-  .card.dark .p { color: rgba(255,255,255,.66); }
-  .card.dark .p b { color: #fff; }
-  code, .mono { font: 600 14px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
+  .body { flex: 1; min-height: 0; margin-top: 22px; display: grid; grid-template-columns: 1fr 560px; gap: 16px; }
+  .col { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+  .card { background: #fff; border-radius: 24px; padding: 20px 26px; min-width: 0; }
+  .grow { flex: 1; display: flex; flex-direction: column; }
 
-  .pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .02em; text-transform: none; white-space: nowrap; }
-  .pill.was { background: var(--fill); color: var(--muted); }
-  .pill.now { background: var(--red); color: #fff; }
-  .pill.ok { background: var(--green-soft); color: var(--green); }
-  .card.dark .pill.was { background: rgba(255,255,255,.1); color: rgba(255,255,255,.7); }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  h2 { font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; }
+  .sub { margin-top: 5px; font-size: 15px; line-height: 1.42; color: var(--muted); }
+  .sub b { color: var(--ink); font-weight: 650; }
+  .legend { display: flex; gap: 16px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; }
+  .new { color: var(--red-ink); font-weight: 700; }
+  .nw { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--hair); font-size: 14.5px; line-height: 1.42; color: var(--muted); }
+  .foot b { color: var(--ink); font-weight: 700; }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
-  .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 9px; background: var(--bg); color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
-  .chip.red { background: var(--red-soft); color: #C21F14; }
-  .chip.code { font: 600 13.5px/1 ui-monospace, "SF Mono", Menlo, monospace; }
-  .chip.new { background: var(--red); color: #fff; }
-  .card.dark .chip { background: rgba(255,255,255,.09); color: #fff; }
-  .card.dark .chip.red { background: rgba(239,49,36,.2); color: #FF8A80; }
+  /* ---------- Полосы из сегментов «было / стало» ---------- */
+  .stack-row { margin-top: 12px; display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; }
+  .stack-row > span { font-size: 14.5px; font-weight: 650; color: var(--muted); }
+  .stack { display: flex; gap: 3px; height: 40px; }
+  .stack div { height: 100%; border-radius: 8px; padding: 0 7px; display: flex; align-items: center; justify-content: flex-start; gap: 5px; font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; }
+  .stack div b { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stack.was div { background: var(--noise); color: #55585E; }
+  .stack.now div { background: var(--red-soft); color: var(--red-ink); }
+  .stack.now div.hot { background: var(--red); color: #fff; }
+  .notes { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 14.5px; line-height: 1.42; color: var(--muted); }
+  .notes b { color: var(--ink); font-weight: 700; }
 
-  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .kpi { background: #fff; border-radius: 22px; padding: 20px 24px; min-width: 0; }
-  .kpi b { display: block; font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .kpi span { display: block; margin-top: 8px; font-size: 14.5px; line-height: 1.4; color: var(--muted); }
-  .kpi.hl b { color: var(--red); }
-  .kpi.dark { background: var(--dark); }
-  .kpi.dark b { color: #fff; }
-  .kpi.dark span { color: rgba(255,255,255,.62); }
+  /* ---------- Пары столбиков «было / стало» ---------- */
+  .metric + .metric { margin-top: 18px; }
+  .metric .q { font-size: 15.5px; font-weight: 700; }
+  .pair { margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair > div { display: grid; grid-template-columns: 1fr 58px; gap: 8px; align-items: center; }
+  .pair i { display: block; height: 18px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .pair i u { display: block; height: 100%; min-width: 3px; border-radius: 5px; background: var(--was); }
+  .pair .now i u { background: var(--red); }
+  .pair em { font-style: normal; text-align: right; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .pair .was em { color: var(--muted); font-weight: 650; }
 
-  .legend { display: flex; gap: 18px; font-size: 13.5px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 7px; }
-  .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
-
-  /* Цитата жюри: дословная формулировка замечания */
-  .jury { display: grid; grid-template-columns: 40px 1fr; gap: 5px 16px; align-items: start; background: #fff; border-radius: 26px; padding: 16px 24px 17px; min-width: 0; box-shadow: inset 4px 0 0 var(--red); }
-  .jury > i { grid-row: span 2; width: 40px; height: 40px; border-radius: 12px; background: var(--red); color: #fff; display: grid; place-items: center; font: 800 30px/1 Georgia, "Times New Roman", serif; font-style: normal; padding-top: 12px; }
-  .jury .jl { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--red); white-space: nowrap; }
-  .jury .jl span { color: var(--muted); font-weight: 700; letter-spacing: .04em; }
-  .jury q { display: block; quotes: none; font-size: 15.5px; line-height: 1.42; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
-  .jury.lg { padding: 20px 26px 21px; }
-  .jury.lg q { font-size: 18px; line-height: 1.42; }
-  .jury-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  /* ---------- Шаги процесса: полоска сверху, серая = было, красная = новое ---------- */
+  .steps { margin-top: 14px; display: grid; gap: 10px; }
+  .steps > div { min-width: 0; }
+  .steps i { display: block; height: 8px; border-radius: 4px; background: var(--was); }
+  .steps i.hot { background: var(--red); }
+  .steps b { display: block; margin-top: 9px; font-size: 15px; line-height: 1.25; font-weight: 750; }
+  .steps span { display: block; margin-top: 3px; font-size: 13.5px; line-height: 1.35; color: var(--muted); }
+  .steps .is-new b { color: var(--red-ink); }
 
   /* ===== Слайд 1 ===== */
-  .s1 { display: grid; grid-template-columns: 650px 1fr; gap: 18px; }
-  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; }
-  .quote { margin-top: 10px; font-size: 16.5px; line-height: 1.45; color: var(--text); }
-  .formula { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-  .formula .t { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; font-size: 15px; font-weight: 650; white-space: nowrap; }
-  .formula .t.hot { background: var(--red); }
-  .formula .o { font-size: 20px; font-weight: 700; color: rgba(255,255,255,.5); }
-  .fines { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-  .fines > span:first-child { font-size: 13.5px; font-weight: 700; color: rgba(255,255,255,.5); margin-right: 3px; }
-  .ingest-card { flex: 1; display: flex; flex-direction: column; }
-  .ingest { margin-top: 16px; flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; align-content: space-evenly; }
-  .ingest div { display: grid; grid-template-columns: 34px 1fr; gap: 2px 12px; align-items: start; }
-  .ingest i { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; background: var(--red-soft); color: var(--red); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 800; }
-  .ingest b { font-size: 16.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
-  .ingest span { font-size: 14px; line-height: 1.38; color: var(--muted); }
-  .ingest .wide { grid-column: span 2; }
+  .scale { position: relative; margin-top: 10px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .srow { position: relative; display: grid; grid-template-columns: 230px 1fr; gap: 14px; align-items: center; }
+  .srow .lbl { font-size: 15px; font-weight: 700; line-height: 1.25; }
+  .srow .lbl small { display: block; font-size: 13.5px; font-weight: 500; color: var(--muted); }
+  .track { position: relative; height: 38px; }
+  .seg { position: absolute; height: 12px; border-radius: 6px; }
+  .seg.was { top: 4px; background: var(--was); }
+  .seg.now { top: 22px; background: var(--red); }
+  .seg.pen { top: 13px; background: var(--red); }
+  .pt { position: absolute; top: 2px; width: 12px; height: 12px; margin-left: -6px; border-radius: 6px; background: var(--was); }
+  .val { position: absolute; font-size: 13.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; transform: translateX(-100%); padding-right: 6px; }
+  .val.right { transform: none; padding: 0 0 0 6px; }
+  .val.was { top: 0; color: var(--muted); }
+  .val.now { top: 19px; color: var(--red-ink); }
+  .val.pen { top: 10px; color: var(--red-ink); }
+  .one { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed rgba(26, 26, 28, .28); }
+  .axis { display: grid; grid-template-columns: 230px 1fr; gap: 14px; }
+  .axis div { position: relative; height: 20px; }
+  .axis span { position: absolute; transform: translateX(-50%); font-size: 13.5px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .pen-head { font-size: 14.5px; font-weight: 700; color: var(--red-ink); }
 
-  .metrics-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .metrics-card { flex: 1; display: flex; flex-direction: column; }
-  .mrows { margin-top: 16px; flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; }
-  .mrow { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }
-  .mname b { display: block; font-size: 17px; font-weight: 700; color: var(--ink); }
-  .mname span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
-  .mname .delta { display: inline-flex; margin-top: 5px; }
-  .delta { display: inline-flex; align-items: center; height: 22px; margin-top: 5px; padding: 0 8px; border-radius: 7px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 800; white-space: nowrap; }
-  .series { display: grid; gap: 6px; }
-  .bar { display: grid; grid-template-columns: 52px 1fr 66px; gap: 12px; align-items: center; }
-  .s1 .bar i { height: 18px; }
-  .bar b { font-size: 13px; font-weight: 650; color: var(--muted); text-align: right; }
-  .bar i { display: block; height: 16px; border-radius: 6px; background: var(--bg); overflow: hidden; }
-  .bar i span { display: block; height: 100%; min-width: 4px; border-radius: 6px; }
-  .bar em { font-style: normal; font-size: 15px; font-weight: 750; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
-  .bar.was span { background: #C5C7CB; }
-  .bar.was em { color: var(--muted); }
-  .bar.now span { background: var(--red); }
+  .feeds { margin-top: 12px; display: grid; grid-template-columns: 98px 1fr 1fr; gap: 9px 14px; align-items: center; }
+  .feeds .hd { font-size: 14px; font-weight: 700; color: var(--muted); }
+  .feeds .co { font-size: 15px; font-weight: 700; }
+  .cells { display: flex; gap: 3px; }
+  .cells i { width: 13px; height: 22px; border-radius: 4px; background: var(--red); }
+  .cells i.noise { background: var(--noise); }
+  .feeds em { font-style: normal; margin-left: 6px; font-size: 14px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .feed-cell { display: flex; align-items: center; }
+
+  .example { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hair); }
+  .example .q { font-size: 15.5px; font-weight: 700; }
+  .example .sub { margin-top: 2px; }
+  .top5 { margin-top: 8px; list-style: none; counter-reset: top; display: flex; flex-direction: column; gap: 4px; }
+  .top5 li { counter-increment: top; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; font-size: 14.5px; line-height: 1.3; }
+  .top5 li::before { content: counter(top); font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .top5 li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top5 li.gone span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; }
+  .top5 li b { font-size: 13.5px; font-weight: 800; color: var(--red-ink); }
 
   /* ===== Слайд 2 ===== */
-  .s2 { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto 1fr 1fr; gap: 16px; height: 100%; }
-  .s2 .card { display: flex; flex-direction: column; }
-  .field { margin-top: 12px; display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: start; }
-  .field > code { padding-top: 7px; color: #C21F14; }
-  .foot { margin-top: auto; padding-top: 12px; font-size: 14px; line-height: 1.4; color: var(--muted); }
-  .foot b { color: var(--ink); }
-  .card.dark .foot { color: rgba(255,255,255,.62); }
-  .card.dark .foot b { color: #fff; }
-  .chips.tight { gap: 6px; }
-  .chips.tight .chip { padding: 0 9px; font-size: 13.5px; }
-  .src { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
-  .src div { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--text); }
-  .src div i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
-  .axes { margin-top: 12px; }
-  .axes .chip { height: 27px; font-size: 13px; padding: 0 9px; }
+  .checks { margin-top: 14px; display: grid; grid-template-columns: 100px 44px 1fr 46px; gap: 8px 12px; align-items: center; }
+  .checks .lbl { font-size: 15px; font-weight: 700; }
+  .checks .when { font-size: 14px; font-weight: 650; color: var(--muted); }
+  .checks .tot { font-size: 15px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+  .checks .tot.was { color: var(--muted); font-weight: 650; }
+  .blocks { display: flex; gap: 3px; height: 26px; min-width: 0; }
+  .blocks i { flex: 0 0 26px; border-radius: 6px; background: var(--noise); }
+  .blocks.now i { background: var(--red-soft); }
+  .blocks.now i.hot { background: var(--red); }
+  .blocks.now i.maybe { background: repeating-linear-gradient(135deg, var(--red) 0 4px, var(--red-soft) 4px 8px); }
+  .blocks div { height: 100%; border-radius: 6px; padding: 0 7px; display: flex; align-items: center; font-size: 13px; font-weight: 650; white-space: nowrap; background: var(--noise); color: #55585E; }
+  .blocks.now div { background: var(--red-soft); color: var(--red-ink); }
+  .blocks.now div.hot { background: var(--red); color: #fff; }
 
-  .banner { margin-top: 14px; border-radius: 14px; padding: 12px 14px; background: linear-gradient(90deg, #FFF3CD, #FDE2DF); border: 1.5px solid #F2B8A8; color: #5A2A12; }
-  .banner b { display: flex; align-items: center; gap: 8px; font-size: 15.5px; font-weight: 800; color: #B5261A; }
-  .banner b::before { content: "!"; width: 20px; height: 20px; border-radius: 50%; background: #E3A008; color: #fff; display: grid; place-items: center; font-size: 13px; }
-  .banner span { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.4; }
-  .gate { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .gate div { border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,.07); }
-  .gate code { display: block; color: #fff; font-size: 13.5px; }
-  .gate span { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.6); }
-  .gate .g code { color: #7FD48A; }
-  .gate .r code { color: #FF8A80; }
-  .conf { margin-top: 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: rgba(255,255,255,.6); }
-  .conf i { display: block; position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
-  .conf i span { position: absolute; left: 0; top: 0; bottom: 0; width: 55%; border-radius: 5px; background: linear-gradient(90deg, #E3A008, var(--red)); }
-  .conf em { font-style: normal; font-weight: 800; color: #fff; font-size: 14px; }
+  .trap { margin-top: 14px; flex: 1; display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 22px; }
+  .trap h3 { font-size: 14.5px; font-weight: 750; color: var(--muted); }
+  .trap h3.bad { color: var(--red-ink); }
+  .trap p { margin-top: 6px; font-size: 15px; line-height: 1.42; }
+  .trap p small { display: block; margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+  .trap .wrong { text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; color: var(--muted); }
+  .field-name { margin-top: 8px; font-size: 14px; font-weight: 700; }
+  .scope { margin-top: 5px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+  .scope span { height: 30px; border-radius: 7px; display: grid; place-items: center; font-size: 13.5px; font-weight: 700; background: var(--noise); color: #55585E; }
+  .scope span.on { background: var(--red); color: #fff; }
+  .conds { margin-top: 5px; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 14.5px; line-height: 1.35; }
+  .conds li::before { content: "+ "; font-weight: 800; color: var(--red-ink); }
 
-  .split { margin-top: 12px; display: grid; grid-template-columns: 0.8fr 1.7fr 0.9fr; gap: 6px; }
-  .split div { border-radius: 10px; padding: 9px 8px; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.25; }
-  .split .f { background: var(--bg); color: var(--ink); }
-  .split .b { background: var(--red-soft); color: #C21F14; }
-  .split .a { background: var(--ink); color: #fff; }
+  .banner { margin-top: 14px; border-radius: 16px; padding: 14px 16px; background: var(--red-wash); }
+  .banner b { display: block; font-size: 16px; font-weight: 800; color: var(--red-ink); }
+  .banner ul { margin-top: 6px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .banner li { font-size: 14px; line-height: 1.38; color: var(--ink); }
+  .banner small { display: block; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .cap { margin-top: 14px; }
+  .cap .q { font-size: 15px; font-weight: 700; }
+  .cap-track { position: relative; margin-top: 8px; height: 18px; border-radius: 5px; background: var(--bg); }
+  .cap-track u { position: absolute; left: 0; top: 0; bottom: 0; width: 55%; border-radius: 5px; background: var(--red); }
+  .cap-track s { position: absolute; left: 55%; top: 0; bottom: 0; right: 0; border-radius: 0 5px 5px 0; background: repeating-linear-gradient(135deg, var(--noise) 0 5px, #fff 5px 10px); }
+  .cap-labels { position: relative; height: 20px; margin-top: 4px; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cap-labels span { position: absolute; transform: translateX(-50%); color: var(--muted); }
+  .cap-labels span.hot { color: var(--red-ink); }
 
-  .bug { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .bug div { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: center; border-radius: 12px; padding: 10px 12px; }
-  .bug .x { background: var(--red-soft); }
-  .bug .v { background: var(--green-soft); }
-  .bug .pill { justify-self: start; }
-  .bug .x .pill { background: #fff; color: #C21F14; }
-  .bug .v .pill { background: #fff; color: var(--green); }
-  .bug p { font-size: 14px; line-height: 1.35; color: var(--text); }
-  .bug s { color: #C21F14; text-decoration-thickness: 2px; }
+  .rows { margin-top: 12px; display: grid; grid-template-columns: 64px 1fr; gap: 6px 12px; font-size: 14.5px; line-height: 1.38; }
+  .rows .w { font-weight: 650; color: var(--muted); }
+  .rows .n { font-weight: 700; color: var(--red-ink); }
+  .rows .muted { color: var(--muted); }
 
-  .fb { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
-  .fbrow { display: grid; grid-template-columns: 1fr 74px 74px; gap: 8px; align-items: center; padding: 0 10px; }
-  .fbrow.hd span { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: right; }
-  .fbrow.hd span:first-child { text-align: left; }
-  .fbrow code { font-size: 13.5px; color: var(--ink); white-space: nowrap; }
-  .fbrow code small { font: 600 12px/1 Inter, -apple-system, sans-serif; color: var(--muted); margin-left: 4px; }
-  .fbrow em { font-style: normal; text-align: right; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .fbrow em.g { color: var(--green); }
-  .fbrow em.r { color: var(--red); }
-  .fbrow.lead-row { background: var(--bg); border-radius: 10px; padding: 8px 10px; }
-  .fbrow.rest code, .fbrow.rest em { color: var(--muted); font-size: 14px; }
+  .models { margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+  .model { display: grid; grid-template-columns: 250px 1fr 56px; gap: 12px; align-items: center; }
+  .model > div { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  .model b { font: 700 14px/1.2 ui-monospace, "SF Mono", Menlo, monospace; }
+  .model small { font-size: 13.5px; color: var(--muted); }
+  .model i { display: block; height: 16px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .model i u { display: block; height: 100%; min-width: 4px; border-radius: 5px; background: var(--was); }
+  .model.best i u { background: var(--red); }
+  .model em { font-style: normal; text-align: right; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .model.best em { color: var(--red-ink); }
 
   /* ===== Слайд 3 ===== */
-  .s3 { display: grid; grid-template-columns: 1fr 640px; grid-template-rows: auto 1fr; gap: 16px 18px; height: 100%; }
-  .s3 .jury-row { grid-template-columns: 1fr 640px; gap: 18px; }
-  .s3 .jury { align-content: center; }
-  .s3 .col { gap: 14px; }
-  .s3 .col > .card { padding: 18px 26px; }
-  .s3 .h { margin-top: 6px; }
-  .s3 .foot { padding-top: 10px; }
-  .s3 .roles div { padding: 10px 10px; }
-  .s3 .roles b { font-size: 14px; white-space: nowrap; }
-  .s3 .col > .card { flex: 1; display: flex; flex-direction: column; }
-  .roles { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .roles div { border-radius: 12px; padding: 10px 12px; background: var(--bg); }
-  .roles div:first-child { background: var(--red-soft); }
-  .roles b { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.25; }
-  .roles code { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
-  .roles div:first-child b { color: #C21F14; }
-  .threads { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .threads > div { border-radius: 12px; padding: 10px 12px; background: var(--bg); display: flex; flex-direction: column; gap: 5px; }
-  .threads code { font-size: 13px; color: var(--ink); }
-  .threads .refs { display: flex; gap: 5px; flex-wrap: wrap; }
-  .threads .refs span { font: 600 12px/1 ui-monospace, Menlo, monospace; height: 22px; padding: 0 7px; border-radius: 6px; background: #fff; color: #C21F14; display: inline-flex; align-items: center; }
-  .flow { margin-top: 12px; display: flex; align-items: stretch; gap: 6px; }
-  .flow div { flex: 1; border-radius: 12px; padding: 9px 10px; background: var(--bg); min-width: 0; }
-  .flow div.hot { background: var(--red-soft); }
-  .flow b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.25; }
-  .flow span { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.3; color: var(--muted); }
-  .flow i { flex: none; align-self: center; font-style: normal; font-size: 16px; font-weight: 800; color: var(--red); }
+  .threads { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .threads h3 { font-size: 15px; font-weight: 750; }
+  .threads h3 span { font-weight: 600; color: var(--muted); }
+  .thread { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .thread-row { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; }
+  .thread-row > span { font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .msgs { display: flex; gap: 3px; }
+  .msgs i { height: 26px; border-radius: 6px; padding: 0 8px; display: inline-flex; align-items: center; font-style: normal; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .msgs i.a { background: var(--red); color: #fff; }
+  .msgs i.b { background: var(--red-soft); color: var(--red-ink); }
+  .msgs i.c { background: var(--noise); color: #55585E; }
+  .threads .mixed .msgs i { background: var(--noise); color: #55585E; }
 
-  .arch { display: flex; flex-direction: column; height: 100%; padding: 26px 30px; }
-  .arch-flow { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
-  .ast { margin-top: 14px; border-radius: 14px; padding: 14px 16px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); }
-  .ast code { color: #fff; font-size: 14px; }
-  .ast ul { margin-top: 8px; list-style: none; display: flex; flex-direction: column; gap: 5px; }
-  .ast li { font-size: 14px; line-height: 1.35; color: rgba(255,255,255,.72); }
-  .ast li::before { content: "✓"; margin-right: 8px; font-weight: 800; color: #7FD48A; }
-  .lane { margin-top: 12px; border-radius: 18px; padding: 16px 18px; }
-  .lane.was { background: rgba(255,255,255,.05); border: 1.5px dashed rgba(255,255,255,.22); }
-  .lane .ttl { display: flex; align-items: center; gap: 10px; }
-  .lane .ttl code { color: #fff; font-size: 16px; }
-  .lane .ttl span { font-size: 13px; color: rgba(255,255,255,.55); }
-  .mono-box { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .mono-box span { height: 28px; padding: 0 10px; border-radius: 8px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 650; background: rgba(239,49,36,.18); color: #FF8A80; }
-  .mono-box span.ok { background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); }
-  .down { margin: 10px 0 0; text-align: center; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.5); }
-  .down b { color: var(--red); font-size: 18px; margin-right: 6px; }
-  .layers { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-  .thin { border-radius: 14px; padding: 12px 14px; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .thin code { color: var(--ink); font-size: 15.5px; }
-  .thin span { font-size: 13px; color: var(--muted); }
-  .mods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .mods div { border-radius: 12px; padding: 10px 11px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.12); }
-  .mods code { display: block; color: #fff; font-size: 13.5px; }
-  .mods span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; color: rgba(255,255,255,.58); }
-  .proof { padding-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .proof div { border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.06); }
-  .proof b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: #fff; line-height: 1; }
-  .proof b.g { color: #7FD48A; }
-  .proof span { display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.6); }
+  .roles { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  .roles div { border-radius: 8px; padding: 9px 10px; background: var(--noise); }
+  .roles div:first-child { background: var(--red); }
+  .roles div:first-child b, .roles div:first-child span { color: #fff; }
+  .roles b { display: block; font-size: 14.5px; font-weight: 750; }
+  .roles span { display: block; margin-top: 2px; font-size: 13px; line-height: 1.3; color: #55585E; }
 
+  .chain { margin-top: 12px; display: grid; grid-template-columns: 170px 24px 1fr; gap: 10px; align-items: center; }
+  .chain .src { font-size: 15px; font-weight: 700; line-height: 1.25; }
+  .chain .src small { display: block; font-size: 13.5px; font-weight: 500; color: var(--muted); }
+  .chain .arr { font-size: 18px; font-weight: 800; color: var(--red); text-align: center; }
+
+  .layers { margin-top: 14px; display: flex; flex-direction: column; gap: 3px; }
+  .layer { display: grid; grid-template-columns: 130px 1fr auto; gap: 12px; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; background: var(--noise); }
+  .layer.top { background: var(--red); color: #fff; }
+  .layer.top span, .layer.top em { color: rgba(255, 255, 255, .85); }
+  .layer code { font-size: 14.5px; }
+  .layer span { font-size: 14px; color: #55585E; }
+  .layer em { font-style: normal; font-size: 13px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .layer-gap { display: flex; align-items: center; gap: 10px; height: 26px; padding-left: 14px; font-size: 13.5px; font-weight: 700; color: var(--muted); }
+  .layer-gap::before { content: "↓"; font-size: 16px; font-weight: 800; color: var(--red); }
+  .layer.mod { background: var(--red-soft); }
+  .layer.mod code, .layer.mod span { color: var(--red-ink); }
   /* ===== Слайд 4 ===== */
   .s4 { display: flex; flex-direction: column; gap: 18px; height: 100%; }
   .shots { display: grid; grid-template-columns: 1fr 56px 1fr; align-items: center; }
@@ -262,258 +261,341 @@
   .arrow { justify-self: center; width: 40px; height: 40px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 800; box-shadow: 0 6px 16px -6px rgba(239,49,36,.6); }
   .changes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; flex: 1; min-height: 0; }
   .chg { background: #fff; border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .chg .head { display: flex; align-items: center; gap: 10px; }
+  .chg .head { display: flex; align-items: center; justify-content: flex-start; gap: 10px; }
   .chg .was-line { margin-top: auto; padding-top: 12px; border-top: 1px solid #ECEDEF; font-size: 13px; line-height: 1.4; color: var(--muted); }
   .chg .was-line i { font-style: normal; font-weight: 800; color: #8E9197; margin-right: 4px; }
-  .chg .n { flex: none; width: 26px; height: 26px; border-radius: 8px; background: var(--red-soft); color: var(--red); display: grid; place-items: center; font-size: 13.5px; font-weight: 800; }
+  .chg .n { flex: none; width: 26px; height: 26px; border-radius: 8px; background: #FDECEA; color: var(--red); display: grid; place-items: center; font-size: 13.5px; font-weight: 800; }
   .chg b { font-size: 16px; line-height: 1.25; font-weight: 750; color: var(--ink); letter-spacing: -.01em; }
   .chg > span { font-size: 15.5px; line-height: 1.42; color: var(--text); }
+
+  .mods { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; }
+  .mods div { border-radius: 8px; padding: 9px 12px; background: var(--red-soft); }
+  .mods code { display: block; color: var(--red-ink); font-size: 14px; }
+  .mods span { display: block; margin-top: 2px; font-size: 13px; line-height: 1.3; color: var(--red-ink); }
 </style>
 </head>
 <body>
 
-<!-- 1. Ранжирование и конвейер новостей -->
+<!-- ================= 1. Ранжирование ================= -->
 <section class="slide" data-name="01-ranking-news">
   <div class="top"><span class="tag">Замечание жюри №1</span><span class="num">1 / 4</span></div>
-  <h1>Ранжирование и конвейер новостей</h1>
-  <p class="lead">Проверили веса на размеченных данных и откалибровали формулу. На эталоне из <b>80 пар</b> (5 компаний × 16 новостей) точность топ-5 выросла <b>с 76% до 92%</b>, а шум в ленте упал <b>с 54% до 3,3%</b>.</p>
+  <h1>Как лента решает, какая новость важнее</h1>
+  <p class="ask"><span>Жюри:</span> «Проверьте веса и качество ранжирования на данных: приоритет должен отражать значимость события для компании.»</p>
   <span class="corner" data-cat="sales"></span>
-  <div class="body s1">
+
+  <div class="body">
     <div class="col">
-      <div class="jury lg">
-        <i>“</i>
-        <div class="jl">Замечание жюри №1<span>· дословно</span></div>
-        <q>Проверьте веса и качество ранжирования на данных: приоритет должен отражать значимость события для компании.</q>
+      <div class="card">
+        <div class="head">
+          <h2>Шаг 1. Насколько новость про компанию</h2>
+          <div class="legend"><span>максимум за каждый признак</span></div>
+        </div>
+        <div class="stack-row">
+          <span>было</span>
+          <div class="stack was">
+            <div style="flex: 0 0 32.2%">Отрасль <b>0,55</b></div>
+            <div style="flex: 0 0 43.9%">Факторы <b>0,75</b></div>
+            <div style="flex: 0 0 14.6%">Регион <b>0,25</b></div>
+          </div>
+        </div>
+        <div class="stack-row">
+          <span>стало</span>
+          <div class="stack now">
+            <div style="flex: 1 1 36.3%">Отрасль <b>0,62</b></div>
+            <div style="flex: 1 1 33.9%">Факторы <b>0,58</b></div>
+            <div class="hot" style="flex: 1 1 16.4%">ОКВЭД <b>+0,28</b></div>
+            <div style="flex: 0 0 auto">Регион <b>0,20</b></div>
+          </div>
+        </div>
+        <div class="notes">
+          <p><b>Факторы</b> (ставка, курс, пошлины) больше не набирают максимум за 3 общих слова: каждый следующий даёт меньше, <span class="nw">100% → 35% → 15%</span>.</p>
+          <p><b>ОКВЭД</b> <span class="new">новое</span>: зернотрейдеру зерно важнее картошки. <b>Регион</b> только при связи с отраслью, Москва и Питер <span class="nw">+0,06</span>.</p>
+        </div>
       </div>
-      <div class="card dark">
-        <div class="k"><span class="pill now">Стало</span>калиброванная формула</div>
-        <div class="formula">
-          <span class="o">(</span>
-          <span class="t">отрасль</span><span class="o">+</span>
-          <span class="t">ОКВЭД</span><span class="o">+</span>
-          <span class="t">факторы с убывающим вкладом</span><span class="o">+</span>
-          <span class="t">мягкое гео для столиц</span>
-          <span class="o">)</span>
-          <span class="o">×</span><span class="t hot">значимость</span>
-          <span class="o">×</span><span class="t hot">тип</span>
-          <span class="o">×</span><span class="t hot">масштаб</span>
+
+      <div class="card grow">
+        <div class="head">
+          <h2>Шаг 2. На что умножаем</h2>
+          <div class="legend"><span><i style="background:var(--was)"></i>было</span><span><i style="background:var(--red)"></i>стало</span></div>
         </div>
-        <div class="fines">
-          <span>Штрафы:</span>
-          <span class="chip red">чужие отрасли</span>
-          <span class="chip red">лайфстайл</span>
-          <span class="chip red">биржевые сводки</span>
-          <span class="chip red">ретро-годы</span>
-        </div>
-      </div>
-      <div class="card ingest-card">
-        <div class="k"><span class="pill now">Стало</span>сбор новостей</div>
-        <div class="ingest">
-          <div><i>16</i><b>RSS-лент</b><span>добавили ПРАЙМ и Forbes</span></div>
-          <div><i>U</i><b>Чистые URL</b><span>UTM-метки вырезаются</span></div>
-          <div><i>Д</i><b>Строгие даты</b><span>dates.py: отсев 2099 и неполных дат</span></div>
-          <div><i>К</i><b>Кластеры ≤ 48 ч</b><span>с защитой от конфликта цифр</span></div>
-          <div class="wide"><i>#</i><b>Транзакционный сброс кэша</b><span>при смене content_hash в одной транзакции сбрасываются triage и insights</span></div>
-        </div>
+        <p class="sub">Левее пунктира <b>×1</b> новость теряет вес, правее получает.</p>
+        <div class="scale" id="scale"></div>
       </div>
     </div>
+
     <div class="col">
-      <div class="card metrics-card">
-        <div class="metrics-head">
-          <div class="k">Замер на эталоне · 80 пар</div>
-          <div class="legend"><span><i style="background:#C5C7CB"></i>было</span><span><i style="background:var(--red)"></i>стало</span></div>
-        </div>
-        <div class="mrows">
-          <div class="mrow">
-            <div class="mname"><b>Precision@5</b><span class="delta">+16 п.п.</span></div>
-            <div class="series">
-              <div class="bar was"><b>было</b><i><span style="width:76%"></span></i><em>76%</em></div>
-              <div class="bar now"><b>стало</b><i><span style="width:92%"></span></i><em>92%</em></div>
-            </div>
-          </div>
-          <div class="mrow">
-            <div class="mname"><b>Шум в топ-5</b><span>Noise@5, меньше = лучше</span></div>
-            <div class="series">
-              <div class="bar was"><b>было</b><i><span style="width:4%"></span></i><em>4%</em></div>
-              <div class="bar now"><b>стало</b><i><span style="width:0%"></span></i><em>0%</em></div>
-            </div>
-          </div>
-          <div class="mrow">
-            <div class="mname"><b>Шум в ленте</b><span class="delta">−50,7 п.п.</span></div>
-            <div class="series">
-              <div class="bar was"><b>было</b><i><span style="width:54%"></span></i><em>54,0%</em></div>
-              <div class="bar now"><b>стало</b><i><span style="width:3.3%"></span></i><em>3,3%</em></div>
-            </div>
-          </div>
-          <div class="mrow">
-            <div class="mname"><b>NDCG@5</b><span>качество порядка в топе</span></div>
-            <div class="series">
-              <div class="bar was"><b>было</b><i><span style="width:95.5%"></span></i><em>0,955</em></div>
-              <div class="bar now"><b>стало</b><i><span style="width:97%"></span></i><em>0,970</em></div>
-            </div>
-          </div>
-          <div class="mrow">
-            <div class="mname"><b>Разнообразие</b><span>не один фактор на всю ленту</span></div>
-            <div class="series">
-              <div class="bar was"><b>было</b><i><span style="width:71%"></span></i><em>0,710</em></div>
-              <div class="bar now"><b>стало</b><i><span style="width:73.6%"></span></i><em>0,736</em></div>
-            </div>
-          </div>
-        </div>
+      <div class="card">
+        <h2>Лента каждой тестовой компании</h2>
+        <p class="sub">Каждой из 5 компаний дали одни и те же 16 новостей и вручную оценили все <b>80 пар</b>. 1 столбик = 1 новость, попавшая в ленту.</p>
+        <div class="legend" style="margin-top:10px"><span><i style="background:var(--red)"></i>по делу</span><span><i style="background:var(--noise)"></i>мусор, к компании не относится</span></div>
+        <div class="feeds" id="feeds"></div>
       </div>
-      <div class="kpis">
-        <div class="kpi hl"><b>92%</b><span>новостей в топ-5 действительно про компанию</span></div>
-        <div class="kpi"><b>0%</b><span>чужих отраслей в топ-5 вместо 4%</span></div>
-        <div class="kpi dark"><b>3,3%</b><span>шума во всей ленте вместо 54,0%</span></div>
+
+      <div class="card grow">
+        <div class="head">
+          <h2>Что это дало</h2>
+          <div class="legend"><span><i style="background:var(--was)"></i>было</span><span><i style="background:var(--red)"></i>стало</span></div>
+        </div>
+        <div class="metric" style="margin-top:10px">
+          <div class="q">Из первых 5 новостей реально важны</div>
+          <div class="pair">
+            <div class="was"><i><u style="width:76%"></u></i><em>76%</em></div>
+            <div class="now"><i><u style="width:92%"></u></i><em>92%</em></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="q">Мусора во всей ленте</div>
+          <div class="pair">
+            <div class="was"><i><u style="width:54%"></u></i><em>54%</em></div>
+            <div class="now"><i><u style="width:3.3%"></u></i><em>3,3%</em></div>
+          </div>
+        </div>
+        <div class="example">
+          <div class="q">Мусора в первой пятёрке: <span class="nw">4% → 0%</span></div>
+          <p class="sub">Это была ровно одна новость на 25 мест. Топ-5 строительной компании:</p>
+          <ol class="top5">
+            <li><span>ЦБ предложил ограничить объёмы льготной ипотеки для застройщиков</span></li>
+            <li><span>В Краснодарском крае ужесточили требования к жилым комплексам</span></li>
+            <li><span>Банк России сохранил ключевую ставку на уровне 14%</span></li>
+            <li><span>Думский комитет одобрил налоговые поправки на 2027 год</span></li>
+            <li class="gone"><span>Госзакупки зерна в интервенционный фонд…</span><b>убрали</b></li>
+          </ol>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 2. Точность разборов -->
+<!-- ================= 2. Точность разборов ================= -->
 <section class="slide" data-name="02-insight-quality">
   <div class="top"><span class="tag">Замечания жюри №2 и №3</span><span class="num">2 / 4</span></div>
-  <h1>Точность разборов и честный статус готовности</h1>
-  <p class="lead">Разбор больше не переносит рост рынка на компанию, не путает источники и даты, а спорное <b>честно помечает</b>.</p>
+  <h1>Как разбор проверяет себя перед показом</h1>
+  <p class="ask sm"><span>Жюри №2:</span> «Не переносите общий рыночный рост на результаты компании. Уточняйте условия реализации возможностей и точно передавайте смысл источников.»</p>
+  <p class="ask sm"><span>Жюри №3:</span> «Не выдавайте разбор как готовый при оставшихся противоречиях и неподтверждённых цифрах. Сохраняйте ссылки на дополнительные источники.»</p>
   <span class="corner" data-cat="tax"></span>
-  <div class="body s2">
-    <div class="jury-row">
-      <div class="jury"><i>“</i><div class="jl">Замечание жюри №2<span>· дословно</span></div><q>Не переносите общий рыночный рост на результаты компании. Уточняйте условия реализации возможностей и точно передавайте смысл источников.</q></div>
-      <div class="jury"><i>“</i><div class="jl">Замечание жюри №3<span>· дословно</span></div><q>Не выдавайте разбор как готовый при оставшихся противоречиях и неподтверждённых цифрах. Сохраняйте ссылки на дополнительные источники.</q></div>
-    </div>
-    <div class="card">
-      <div class="k">Без overclaim</div>
-      <div class="h">Рост рынка ≠ рост компании</div>
-      <div class="field"><code>conditions</code><div class="chips tight"><span class="chip">мощности</span><span class="chip">квоты</span><span class="chip">логистика</span><span class="chip">регион</span></div></div>
-      <div class="field"><code>scope</code><div class="chips"><span class="chip code">market</span><span class="chip code">sector</span><span class="chip code">company</span></div></div>
-      <p class="foot">Оба поля <b>обязательны</b> у каждой возможности. Вывод про компанию без условий ловит <b>автопроверка overclaim</b>.</p>
-    </div>
-    <div class="card">
-      <div class="k">Точность источников</div>
-      <div class="h">Смысл, субъект и даты не путаются</div>
-      <div class="src">
-        <div><i style="background:#0B0B0C"></i>Прогноз ЦБ отдельно</div>
-        <div><i style="background:var(--red)"></i>Альфа-Банк разных дат не склеивается</div>
-        <div><i style="background:#C5C7CB"></i>СМИ не выдаются за позицию банка</div>
+
+  <div class="body">
+    <div class="col">
+      <div class="card">
+        <div class="head">
+          <h2>Путь разбора до показа</h2>
+          <div class="legend"><span><i style="background:var(--was)"></i>было</span><span><i style="background:var(--red)"></i>новое</span></div>
+        </div>
+        <div class="steps" style="grid-template-columns: repeat(6, 1fr)">
+          <div><i></i><b>Пишет разбор</b><span>по найденным источникам</span></div>
+          <div><i></i><b>Правила</b><span>проверки кодом, без ИИ</span></div>
+          <div><i></i><b>Критик</b><span>модель другой семьи</span></div>
+          <div><i></i><b>Доработка</b><span>точечно по замечаниям</span></div>
+          <div class="is-new"><i class="hot"></i><b>Повторная проверка</b><span>правила и критик ещё раз</span></div>
+          <div class="is-new"><i class="hot"></i><b>Статус готовности</b><span>«готов» или «требует проверки»</span></div>
+        </div>
+
+        <div class="checks">
+          <span class="lbl">Правила</span>
+          <span class="when">было</span>
+          <div class="blocks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <span class="tot was">9</span>
+          <span></span>
+          <span class="when">стало</span>
+          <div class="blocks now"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="hot"></i><i class="maybe"></i></div>
+          <span class="tot">10-11</span>
+
+          <span class="lbl">Оси критика</span>
+          <span class="when">было</span>
+          <div class="blocks"><div>источники</div><div>про компанию</div><div>глубина</div><div>кто что сказал</div></div>
+          <span class="tot was">4</span>
+          <span></span>
+          <span class="when">стало</span>
+          <div class="blocks now"><div>источники</div><div>про компанию</div><div>глубина</div><div>кто что сказал</div><div class="hot">точный смысл</div><div class="hot">без натяжек</div></div>
+          <span class="tot">6</span>
+        </div>
+        <div class="notes">
+          <p><b>Новые правила:</b> у каждой возможности указаны условия, и учтены уточнения пользователя (11-е, если они есть).</p>
+          <p><b>Правило цифр</b> теперь называет каждое неподтверждённое число, а не просто «есть проблема».</p>
+        </div>
       </div>
-      <div class="chips axes">
-        <span class="chip">grounding</span><span class="chip">personalization</span><span class="chip">depth</span><span class="chip">attribution</span><span class="chip new">+ source_fidelity</span><span class="chip new">+ no_overclaim</span>
+
+      <div class="card grow">
+        <div class="head">
+          <h2>Рост рынка ≠ рост компании</h2>
+          <div class="legend"><span>ловушка ext_03 из FaithBench</span></div>
+        </div>
+        <div class="trap">
+          <div>
+            <h3>Что дали модели</h3>
+            <p>Новость: «Инвестиции в жилую недвижимость Петербурга выросли на 25%».</p>
+            <p>Компания строит инженерные сооружения в Иркутске.</p>
+          </div>
+          <div>
+            <h3 class="bad">Как ошиблась gemma-4 (high)</h3>
+            <p>«Перенесла рост СПб на иркутскую компанию как прямую возможность»<small>вердикт судьи в бенчмарке</small></p>
+          </div>
+          <div>
+            <h3>Теперь у возможности 2 обязательных поля</h3>
+            <div class="field-name">Масштаб: чей это рост</div>
+            <div class="scope"><span class="on">рынок</span><span>отрасль</span><span>компания</span></div>
+            <div class="field-name">Условия: когда сработает</div>
+            <ul class="conds">
+              <li>выход на рынок Петербурга</li>
+              <li>заказы в жилье, а не в инженерке</li>
+            </ul>
+          </div>
+        </div>
+        <p class="foot">Вывод про компанию без условий ловит правило <b>«условия реализации»</b>, и разбор уходит на доработку.</p>
       </div>
-      <p class="foot"><b>6-осевой кросс-критик</b> и повторная проверка после доработки.</p>
     </div>
-    <div class="card dark">
-      <div class="k">Гейт готовности</div>
-      <div class="banner"><b>Требует проверки</b><span>Остались противоречия или неподтверждённые цифры</span></div>
-      <div class="gate">
-        <div class="g"><code>ready</code><span>всё сошлось, разбор готов</span></div>
-        <div class="r"><code>needs_review</code><span>не выдаётся как готовый</span></div>
+
+    <div class="col">
+      <div class="card grow">
+        <h2>Спорный разбор не выглядит готовым</h2>
+        <p class="sub">Раньше статуса не было: любой разбор показывался как готовый. Теперь сверху баннер с причинами, например для ловушки про квоту на зерно:</p>
+        <div class="banner">
+          <b>Разбор требует проверки</b>
+          <ul>
+            <li>Противоречие между источниками: квота 12 или 15 млн т</li>
+            <li>Остались неподтверждённые источниками цифры</li>
+          </ul>
+        </div>
+        <div class="cap">
+          <div class="q">Уверенность такого разбора</div>
+          <div class="cap-track"><u></u><s></s></div>
+          <div class="cap-labels"><span style="left:2%">0</span><span class="hot" style="left:55%">не выше 55%</span><span style="left:97%">100</span></div>
+        </div>
+        <div class="rows">
+          <span class="w">было</span><span class="muted">в списке источников только те, на которые стоит сноска</span>
+          <span class="n">стало</span><span>все найденные новости, веб, аналитика банка и уточнения, у каждого ссылка, процитированные помечены</span>
+        </div>
+        <p class="foot"><b>Ложная тревога ушла:</b> дата <span class="nw">23.10.2026</span> раньше читалась как число <span class="nw">23,1</span> и помечала разбор зря.</p>
       </div>
-      <div class="conf"><span>уверенность</span><i><span></span></i><em>≤ 55%</em></div>
-      <p class="foot">Если после доработки остались противоречия, разбор <b>не выдаётся как готовый</b>: баннер с причинами сверху.</p>
-    </div>
-    <div class="card">
-      <div class="k">Прозрачность</div>
-      <div class="h">Все источники со ссылками</div>
-      <div class="chips" style="margin-top:12px"><span class="chip code red">news:*</span><span class="chip code red">web:*</span><span class="chip code red">bank:*</span><span class="chip code red">user:*</span><span class="chip">+ URL у каждого</span></div>
-      <div class="split"><div class="f">Факты</div><div class="b">Позиция Альфа-Банка</div><div class="a">Вывод AI</div></div>
-      <p class="foot">Сохраняются <b>все</b> дополнительные источники, сверху явный дисклеймер.</p>
-    </div>
-    <div class="card">
-      <div class="k">Баг парсера</div>
-      <div class="h">Дата больше не «число»</div>
-      <div class="bug">
-        <div class="x"><span class="pill">было</span><p><code>23.10.2026</code> → <s>неподтверждённое число 23.1</s></p></div>
-        <div class="v"><span class="pill">стало</span><p><code>23.10.2026</code> → распознаётся как дата</p></div>
+
+      <div class="card">
+        <div class="head">
+          <h2>18 ловушек, 6 моделей</h2>
+          <div class="legend"><span>режим без рассуждений</span></div>
+        </div>
+        <p class="sub">Доля ответов с выдумкой. Судит модель другой семьи.</p>
+        <div class="models" id="models"></div>
       </div>
-      <p class="foot">Ложные тревоги проверки цифр <b>ушли</b>, гейт срабатывает только по делу.</p>
-    </div>
-    <div class="card">
-      <div class="k">Alfi-FaithBench</div>
-      <div class="h">18 ловушек × 6 моделей</div>
-      <div class="fb">
-        <div class="fbrow hd"><span>модель</span><span>галлюц.</span><span>ловушки</span></div>
-        <div class="fbrow lead-row"><code>glm-5.3-flash<small>off/med/high</small></code><em class="g">0%</em><em class="r">100%</em></div>
-        <div class="fbrow lead-row"><code>gemma-4 · deepseek<small>off</small></code><em class="g">5,6%</em><em class="r">94%</em></div>
-        <div class="fbrow rest"><code>ещё 16 режимов</code><em>11–44%</em><em>56–94%</em></div>
-      </div>
-      <p class="foot">21 конфигурация (off/low/med/high), кросс-судья. <b style="white-space:nowrap">glm-5.3-flash</b> работает критиком.</p>
     </div>
   </div>
 </section>
 
-<!-- 3. Чат и архитектура -->
+<!-- ================= 3. Чат и слои ================= -->
 <section class="slide" data-name="03-chat-architecture">
   <div class="top"><span class="tag">Замечания жюри №4 и №5</span><span class="num">3 / 4</span></div>
-  <h1>Чат по событию, уточнения и чистые слои сервера</h1>
-  <p class="lead">Чат не смешивает компании и события, уточнения клиента важнее всего, а сервер разложен по слоям.</p>
+  <h1>Чат по событию, уточнения и сервер по слоям</h1>
+  <p class="ask sm"><span>Жюри №4:</span> «Проверяйте даты и форматы данных, согласованно обновляйте текст, разметку и кэш. Исключите смешение компаний, привяжите историю чата к событию и учитывайте уточнения пользователя.»</p>
+  <p class="ask sm"><span>Жюри №5:</span> «Отделите загрузку, правила обратной связи и работу с базой данных от обработки веб-запросов.»</p>
   <span class="corner" data-cat="people"></span>
-  <div class="body s3" style="margin-top:24px">
-    <div class="jury-row">
-      <div class="jury"><i>“</i><div class="jl">Замечание жюри №4<span>· дословно</span></div><q>Проверяйте даты и форматы данных, согласованно обновляйте текст, разметку и кэш. Исключите смешение компаний, привяжите историю чата к событию и учитывайте уточнения пользователя.</q></div>
-      <div class="jury"><i>“</i><div class="jl">Замечание жюри №5<span>· дословно</span></div><q>Отделите загрузку, правила обратной связи и работу с базой данных от обработки веб-запросов.</q></div>
-    </div>
+
+  <div class="body">
     <div class="col">
       <div class="card">
-        <div class="k">Без смешения компаний</div>
-        <div class="h">Четыре роли разведены в инструментах и промптах</div>
-        <div class="roles">
-          <div><b>Компания клиента</b><code>get_company_profile</code></div>
-          <div><b>Компании из новостей</b><code>news:*</code></div>
-          <div><b>Контрагенты</b><code>get_counterparties</code></div>
-          <div><b>Группа</b><code>get_group_structure</code></div>
+        <div class="head">
+          <h2>История чата привязана к новости</h2>
+          <div class="legend"><span>1 плашка = 1 сообщение</span></div>
         </div>
-        <p class="foot">Сторонняя компания из новости больше <b>не выдаётся</b> за клиента или его контрагента.</p>
-      </div>
-      <div class="card">
-        <div class="k">Чат привязан к событию</div>
-        <div class="h">Ключ диалога: <code style="font-size:18px">helper + news_id</code></div>
         <div class="threads">
-          <div><code>CFO · событие A</code><div class="refs"><span>[news:*]</span><span>[bank:*]</span></div></div>
-          <div><code>CFO · событие B</code><div class="refs"><span>[news:*]</span><span>[user:*]</span></div></div>
+          <div class="mixed">
+            <h3>Было <span>· один диалог на помощника</span></h3>
+            <div class="thread">
+              <div class="thread-row"><span>CFO</span><div class="msgs"><i>ставка</i><i>акцизы</i><i>ставка</i><i>пошлины</i><i>акцизы</i></div></div>
+            </div>
+          </div>
+          <div>
+            <h3>Стало <span>· помощник + новость</span></h3>
+            <div class="thread">
+              <div class="thread-row"><span>ставка</span><div class="msgs"><i class="a">ставка</i><i class="a">ставка</i></div></div>
+              <div class="thread-row"><span>акцизы</span><div class="msgs"><i class="b">акцизы</i><i class="b">акцизы</i></div></div>
+              <div class="thread-row"><span>пошлины</span><div class="msgs"><i class="c">пошлины</i></div></div>
+            </div>
+          </div>
         </div>
-        <p class="foot">Разные события не смешивают диалоги, сноски восстанавливаются <b>из истории БД</b>.</p>
+        <p class="sub" style="margin-top:12px">Сноски на новости и аналитику банка сохраняются в истории и возвращаются, когда открываешь диалог снова.</p>
       </div>
+
       <div class="card">
-        <div class="k">Уточнения пользователя</div>
-        <div class="h">user:* с высшим приоритетом</div>
-        <div class="flow">
-          <div><b>Чат или форма</b><span>в окне разбора</span></div><i>→</i>
-          <div class="hot"><b>user:*</b><span>главнее остальных</span></div><i>→</i>
-          <div><b>verify</b><span>11-е правило</span></div><i>→</i>
-          <div><b>Новый кэш</b><span>clarification_hash</span></div>
+        <div class="head">
+          <h2>Уточнения пользователя</h2>
+          <div class="legend"><span><i style="background:var(--red)"></i>новое</span></div>
         </div>
-        <p class="foot">Уточнение меняет хэш, и разбор <b>пересобирается</b> с учётом новых фактов.</p>
+        <div class="steps" style="grid-template-columns: repeat(4, 1fr)">
+          <div class="is-new"><i class="hot"></i><b>Пишешь уточнение</b><span>в чате или в форме разбора</span></div>
+          <div class="is-new"><i class="hot"></i><b>Оно становится источником</b><span>главнее новостей и профиля</span></div>
+          <div class="is-new"><i class="hot"></i><b>Старый разбор сбрасывается</b><span>меняется хэш уточнений</span></div>
+          <div class="is-new"><i class="hot"></i><b>Разбор пересобирается</b><span>правило проверяет, что учтено</span></div>
+        </div>
+        <div class="head" style="margin-top:16px"><h2 style="font-size:17px">Четыре вида компаний не смешиваются</h2></div>
+        <div class="roles">
+          <div><b>Ваша компания</b><span>профиль клиента</span></div>
+          <div><b>Из новости</b><span>участники события</span></div>
+          <div><b>Контрагенты</b><span>покупатели, поставщики</span></div>
+          <div><b>Группа</b><span>связанные юрлица</span></div>
+        </div>
+      </div>
+
+      <div class="card grow">
+        <h2>Даты и кэш</h2>
+        <div class="chain">
+          <div class="src">Текст новости поменялся<small>не совпал хэш текста</small></div>
+          <span class="arr">→</span>
+          <div class="blocks now"><div class="hot">теги заново</div><div>выжимка</div><div>триаж</div><div>разборы</div><div style="background:none;color:var(--muted)">сбрасываются разом</div></div>
+        </div>
+        <div class="chain">
+          <div class="src">Кривая дата<small>в RSS или ответе модели</small></div>
+          <span class="arr">→</span>
+          <div class="blocks now"><div>2099 год → сейчас</div><div>«2026» без дня → нет даты</div><div>раньше 2015 → отбрасываем</div></div>
+        </div>
       </div>
     </div>
-    <div class="card dark arch">
-      <div class="k">Архитектура слоёв</div>
-      <div class="arch-flow">
-      <div class="lane was">
-        <div class="ttl"><span class="pill was">Было</span><code>main.py</code><span>монолит</span></div>
-        <div class="mono-box"><span class="ok">HTTP</span><span>прямой SQL</span><span>threading</span><span>веса ранжирования</span><span>сбор новостей</span></div>
-      </div>
-      <div class="down"><b>↓</b>разнесли по модулям</div>
-      <div class="layers">
-        <div class="thin"><div style="display:flex;align-items:center;gap:10px"><span class="pill now">Стало</span><code>main.py</code></div><span>только HTTP и SSE</span></div>
-        <div class="mods">
-          <div><code>ingest.py</code><span>сбор, URL, кэш</span></div>
-          <div><code>feedback.py</code><span>веса отклика</span></div>
-          <div><code>dates.py</code><span>строгие даты</span></div>
-          <div><code>db.py</code><span>весь SQL</span></div>
+
+    <div class="col">
+      <div class="card grow">
+        <div class="head">
+          <h2>Сервер разложен по слоям</h2>
+          <div class="legend"><span><i style="background:var(--was)"></i>было</span><span><i style="background:var(--red)"></i>стало</span></div>
         </div>
-      </div>
-      <div class="ast">
-        <code>AST-тест слоёв</code>
-        <ul>
-          <li>разбирает код main.py, а не ищет строки</li>
-          <li>падает, если туда вернётся прямой SQL или threading</li>
-        </ul>
-      </div>
-      </div>
-      <div class="proof">
-        <div><b>0</b><span>прямого SQL в main.py</span></div>
-        <div><b>0</b><span>threading в main.py</span></div>
-        <div><b class="g">57</b><span>зелёных тестов, включая AST-тест слоёв</span></div>
+        <p class="sub">Файл <code>main.py</code> принимает веб-запросы. Что в нём жило:</p>
+        <div class="stack-row">
+          <span>было</span>
+          <div class="stack was"><div style="flex:1">HTTP</div><div style="flex:1.6">запросы к базе</div><div style="flex:1.5">планировщик</div><div style="flex:1">потоки</div></div>
+        </div>
+        <div class="stack-row">
+          <span>стало</span>
+          <div class="stack now"><div class="hot" style="flex:0 0 40%">HTTP и стрим ответов</div></div>
+        </div>
+
+        <div class="metric" style="margin-top:16px">
+          <div class="q">Строк в <code>main.py</code></div>
+          <div class="pair">
+            <div class="was"><i><u style="width:100%"></u></i><em>572</em></div>
+            <div class="now"><i><u style="width:90%"></u></i><em>515</em></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="q">Прямых обращений к базе в <code>main.py</code></div>
+          <div class="pair">
+            <div class="was"><i><u style="width:100%"></u></i><em>12</em></div>
+            <div class="now"><i><u style="width:0%"></u></i><em>0</em></div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="q">Запусков фоновых потоков</div>
+          <div class="pair">
+            <div class="was"><i><u style="width:100%"></u></i><em>3</em></div>
+            <div class="now"><i><u style="width:0%"></u></i><em>0</em></div>
+          </div>
+        </div>
+
+        <div class="layers">
+          <div class="layer top"><code>main.py</code><span>только HTTP и стрим ответов</span><em>515 строк</em></div>
+          <div class="layer-gap">всё остальное уехало в модули</div>
+          <div class="layer mod"><code>ingest.py</code><span>планировщик, прогрев ленты, загрузка своих новостей</span><em>89 строк</em></div>
+          <div class="layer mod"><code>feedback.py</code><span>«полезно» +0,15 к весу, «не по делу» −0,2</span><em>85 строк</em></div>
+          <div class="layer mod"><code>db.py</code><span>весь SQL и миграции, без бизнес-логики</span><em></em></div>
+        </div>
+
+        <p class="foot"><b>Автотест разбирает код <code>main.py</code></b> и падает, если туда вернутся запросы к базе, потоки или формулы отклика. Всего <b>57 из 57</b> тестов зелёные.</p>
       </div>
     </div>
   </div>
@@ -546,10 +628,114 @@
   </div>
 </section>
 
+<script>
+  function comma(value) {
+    return value.toFixed(2).replace('.', ',');
+  }
+
+  // ---------- Слайд 1: шкала множителей от ×0 до ×1,7, пунктир на ×1 ----------
+  const SCALE_MAX = 1.7;
+
+  function pos(value) {
+    return (value / SCALE_MAX * 100).toFixed(2) + '%';
+  }
+
+  function segment(kind, from, to) {
+    return `<span class="seg ${kind}" style="left:${pos(from)};width:calc(${pos(to)} - ${pos(from)})"></span>`;
+  }
+
+  function label(kind, value, text, side) {
+    const sideClass = side === 'right' ? ' right' : '';
+    return `<span class="val ${kind}${sideClass}" style="left:${pos(value)}">${text}</span>`;
+  }
+
+  const ranges = [
+    { title: 'Крупность события', hint: 'ИИ ставит от 1 до 5', was: [0.70, 1.30], now: [0.45, 1.60] },
+    { title: 'Тип события', hint: 'закон, решение ЦБ, отчёт', was: null, now: [0.80, 1.24] },
+  ];
+
+  const penalties = [
+    { title: 'Чужая отрасль', hint: 'акциз на напитки для топливщика', value: 0.25 },
+    { title: 'Лайфстайл', hint: '3 бокала глинтвейна на москвича', value: 0.30 },
+    { title: 'Биржевая сводка', hint: 'динамика акций, «Яндекс»', value: 0.52 },
+    { title: 'Итоги прошлых лет', hint: '«в 2025 году РФ направила…»', value: 0.78 },
+  ];
+
+  function rangeRow(item) {
+    let wasPart = `<span class="pt" style="left:${pos(1)}"></span>` + label('was', 1.04, 'не было', 'right');
+    if (item.was) {
+      wasPart = segment('was', item.was[0], item.was[1])
+        + label('was', item.was[0], '×' + comma(item.was[0]))
+        + label('was', item.was[1], '×' + comma(item.was[1]), 'right');
+    }
+    const nowPart = segment('now', item.now[0], item.now[1])
+      + label('now', item.now[0], '×' + comma(item.now[0]))
+      + label('now', item.now[1], '×' + comma(item.now[1]), 'right');
+    return `<div class="srow"><div class="lbl">${item.title}<small>${item.hint}</small></div>`
+      + `<div class="track"><span class="one" style="left:${pos(1)}"></span>${wasPart}${nowPart}</div></div>`;
+  }
+
+  function penaltyRow(item) {
+    return `<div class="srow"><div class="lbl">${item.title}<small>${item.hint}</small></div>`
+      + `<div class="track"><span class="one" style="left:${pos(1)}"></span>`
+      + segment('pen', 0, item.value) + label('pen', item.value, '×' + comma(item.value), 'right') + '</div></div>';
+  }
+
+  const axisTicks = [0, 0.5, 1, 1.5]
+    .map((tick) => `<span style="left:${pos(tick)}">×${String(tick).replace('.', ',')}</span>`)
+    .join('');
+
+  document.getElementById('scale').innerHTML = ranges.map(rangeRow).join('')
+    + '<div class="pen-head">Новое: штрафы за мусор</div>'
+    + penalties.map(penaltyRow).join('')
+    + `<div class="axis"><i></i><div>${axisTicks}</div></div>`;
+
+  // ---------- Слайд 1: ленты из docs/bench/ranking.json (размер ленты, сколько в ней мусора) ----------
+  const feeds = [
+    { company: 'Агро', was: [15, 8], now: [6, 1] },
+    { company: 'Напитки', was: [15, 10], now: [4, 0] },
+    { company: 'Топливо', was: [13, 7], now: [4, 0] },
+    { company: 'Стройка', was: [10, 5], now: [4, 0] },
+    { company: 'Логистика', was: [13, 6], now: [6, 0] },
+  ];
+
+  function cells(size, noise) {
+    const useful = size - noise;
+    const blocks = [];
+    for (let index = 0; index < size; index += 1) {
+      const isNoise = index >= useful;
+      blocks.push(isNoise ? '<i class="noise"></i>' : '<i></i>');
+    }
+    return `<div class="feed-cell"><div class="cells">${blocks.join('')}</div><em>${size}</em></div>`;
+  }
+
+  document.getElementById('feeds').innerHTML = '<span></span><span class="hd">было</span><span class="hd">стало</span>'
+    + feeds.map((feed) => `<span class="co">${feed.company}</span>${cells(...feed.was)}${cells(...feed.now)}`).join('');
+
+  // ---------- Слайд 2: FaithBench, режим off, данные из docs/bench/faithbench.json ----------
+  const models = [
+    { name: 'glm-5.3-flash', role: 'у нас критик', rate: 0 },
+    { name: 'gemma-4', role: 'разметка новостей', rate: 5.6 },
+    { name: 'deepseek-v4.1', role: 'пишет разборы', rate: 5.6 },
+    { name: 'qwen3.6', role: 'запасная', rate: 11.1 },
+    { name: 'kimi-k2.6', role: 'не используем', rate: 11.1 },
+    { name: 'qwen3-vl', role: 'читает сканы', rate: 22.2 },
+  ];
+  const MODELS_MAX = 25;
+
+  document.getElementById('models').innerHTML = models.map((model) => {
+    const width = (model.rate / MODELS_MAX * 100).toFixed(1);
+    const isBest = model.rate === 0;
+    const value = String(model.rate).replace('.', ',') + '%';
+    return `<div class="model${isBest ? ' best' : ''}"><div><b>${model.name}</b><small>${model.role}</small></div>`
+      + `<i><u style="width:${width}%"></u></i><em>${value}</em></div>`;
+  }).join('');
+</script>
+
 <script src="../../web/js/mascot.js"></script>
 <script src="../../web/js/mascot-reference.js"></script>
 <script>
-  // Маскот в углу: та же 3D-модель, что на сайте (синхронный рендер в data URL)
+  // Маскот в углу, как на остальных слайдах
   (function () {
     const mascot = window.Mascot;
     document.querySelectorAll('[data-cat]').forEach((el) => {

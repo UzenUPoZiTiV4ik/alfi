@@ -471,9 +471,9 @@ def main() -> None:
             "reasoning_mode": "off",
             "reasoning_purposes": set(),
         })
-    # 2. Режимы мышления (включая low reasoning effort!) и гибридные связки
+    # 2. Режимы рассуждений: только явные effort'ы low / medium / high (без неконтролируемого on!)
     specs.append({
-        "variant": "low:deepseek_synth",
+        "variant": "effort:ds_low",
         "group": "reasoning",
         "kind": "agent",
         "agent_model": primary,
@@ -483,71 +483,54 @@ def main() -> None:
         "reasoning_effort": "low",
     })
     specs.append({
-        "variant": "low:deepseek_all",
+        "variant": "effort:ds_medium",
         "group": "reasoning",
         "kind": "agent",
         "agent_model": primary,
         "critic_model": primary_critic,
         "reasoning_mode": "selective",
-        "reasoning_purposes": {"plan", "synth", "repair"},
-        "reasoning_effort": "low",
+        "reasoning_purposes": {"synth", "repair"},
+        "reasoning_effort": "medium",
     })
     specs.append({
-        "variant": "low:gemma_synth",
+        "variant": "effort:ds_high",
+        "group": "reasoning",
+        "kind": "agent",
+        "agent_model": primary,
+        "critic_model": primary_critic,
+        "reasoning_mode": "selective",
+        "reasoning_purposes": {"synth", "repair"},
+        "reasoning_effort": "high",
+    })
+    specs.append({
+        "variant": "effort:glm_medium",
+        "group": "reasoning",
+        "kind": "agent",
+        "agent_model": "z-ai/glm-5.3-flash",
+        "critic_model": "deepseek/deepseek-v4.1-flash",
+        "reasoning_mode": "selective",
+        "reasoning_purposes": {"synth", "repair"},
+        "reasoning_effort": "medium",
+    })
+    specs.append({
+        "variant": "effort:gemma_medium",
         "group": "reasoning",
         "kind": "agent",
         "agent_model": "google/gemma-4-26b-a4b-it",
         "critic_model": "z-ai/glm-5.3-flash",
         "reasoning_mode": "selective",
         "reasoning_purposes": {"synth", "repair"},
-        "reasoning_effort": "low",
+        "reasoning_effort": "medium",
     })
     specs.append({
-        "variant": "low:glm_synth",
+        "variant": "effort:qwen_medium",
         "group": "reasoning",
         "kind": "agent",
-        "agent_model": "z-ai/glm-5.3-flash",
-        "critic_model": "deepseek/deepseek-v4.1-flash",
+        "agent_model": "qwen/qwen3.6-35b-a3b",
+        "critic_model": "z-ai/glm-5.3-flash",
         "reasoning_mode": "selective",
-        "reasoning_purposes": {"synth", "repair", "critic"},
-        "reasoning_effort": "low",
-    })
-    specs.append({
-        "variant": "think:selective_critic",
-        "group": "reasoning",
-        "kind": "agent",
-        "agent_model": primary,
-        "critic_model": primary_critic,
-        "reasoning_mode": "selective",
-        "reasoning_purposes": {"critic", "repair"},
-    })
-    specs.append({
-        "variant": "think:selective_synth",
-        "group": "reasoning",
-        "kind": "agent",
-        "agent_model": primary,
-        "critic_model": primary_critic,
-        "reasoning_mode": "selective",
-        "reasoning_purposes": {"synth", "critic", "repair"},
-    })
-    specs.append({
-        "variant": "think:on",
-        "group": "reasoning",
-        "kind": "agent",
-        "agent_model": primary,
-        "critic_model": primary_critic,
-        "reasoning_mode": "on",
-        "reasoning_purposes": {"plan", "synth", "critic", "repair"},
-    })
-    # Гибрид лидеров FaithBench: GLM-5.3-flash (off) как быстрый точный агент + DeepSeek-v4.1-flash (think=on) как критик
-    specs.append({
-        "variant": "hybrid:glm+ds_think",
-        "group": "reasoning",
-        "kind": "agent",
-        "agent_model": "z-ai/glm-5.3-flash",
-        "critic_model": "deepseek/deepseek-v4.1-flash",
-        "reasoning_mode": "selective",
-        "reasoning_purposes": {"critic"},
+        "reasoning_purposes": {"synth", "repair"},
+        "reasoning_effort": "medium",
     })
     # 3. Абляция архитектуры на основной модели
     specs.append({
@@ -662,7 +645,7 @@ def main() -> None:
                 summaries.append(s)
                 payload = {
                     "meta": {
-                        "benchmark": "Alfi-E2E v2.0",
+                        "benchmark": "Alfi-E2E v2.1 (off/low/medium/high)",
                         "events": [e["id"] for e in events],
                         "primary_model": primary,
                         "total_spend_rub": round(total_spend, 2),

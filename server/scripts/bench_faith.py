@@ -37,23 +37,28 @@ os.environ.setdefault("ALFI_DEMO_MODE", "1")
 from app import agent, config, db, llm, nlp
 from scripts.bench_cases import FAITH_CASES
 
-# Все 6 разрешённых моделей шлюза: off / low / on (qwen3-vl без reasoning)
+# Все 6 разрешённых моделей шлюза: off / low / medium / high (qwen3-vl без reasoning; режим on убран)
 CONFIGS: list[tuple[str, str]] = [
     ("deepseek/deepseek-v4.1-flash", "off"),
     ("deepseek/deepseek-v4.1-flash", "low"),
-    ("deepseek/deepseek-v4.1-flash", "on"),
+    ("deepseek/deepseek-v4.1-flash", "medium"),
+    ("deepseek/deepseek-v4.1-flash", "high"),
     ("z-ai/glm-5.3-flash", "off"),
     ("z-ai/glm-5.3-flash", "low"),
-    ("z-ai/glm-5.3-flash", "on"),
+    ("z-ai/glm-5.3-flash", "medium"),
+    ("z-ai/glm-5.3-flash", "high"),
     ("google/gemma-4-26b-a4b-it", "off"),
     ("google/gemma-4-26b-a4b-it", "low"),
-    ("google/gemma-4-26b-a4b-it", "on"),
+    ("google/gemma-4-26b-a4b-it", "medium"),
+    ("google/gemma-4-26b-a4b-it", "high"),
     ("qwen/qwen3.6-35b-a3b", "off"),
     ("qwen/qwen3.6-35b-a3b", "low"),
-    ("qwen/qwen3.6-35b-a3b", "on"),
+    ("qwen/qwen3.6-35b-a3b", "medium"),
+    ("qwen/qwen3.6-35b-a3b", "high"),
     ("moonshotai/kimi-k2.6", "off"),
     ("moonshotai/kimi-k2.6", "low"),
-    ("moonshotai/kimi-k2.6", "on"),
+    ("moonshotai/kimi-k2.6", "medium"),
+    ("moonshotai/kimi-k2.6", "high"),
     ("qwen/qwen3-vl-30b-a3b-instruct", "off"),
 ]
 
@@ -243,10 +248,10 @@ def deterministic_check(case: dict, parsed: dict | None) -> dict:
 
 
 def _direct_call_json(model: str, messages: list[dict], *, mode: str, purpose: str, max_tokens: int, temperature: float, timeout: float = 150) -> tuple[dict | None, dict]:
-    """Вызов строго указанной модели без подмены на fallback (mode: 'off' | 'low' | 'on')."""
+    """Вызов строго указанной модели без подмены на fallback (mode: 'off' | 'low' | 'medium' | 'high')."""
     t0 = time.time()
-    use_think = mode in ("low", "on")
-    headroom = 768 if mode == "low" else 2048
+    use_think = mode in ("low", "medium", "high")
+    headroom = {"low": 1024, "medium": 2048, "high": 3072}.get(mode, 0)
     eff_max = min(max_tokens + headroom, 8192) if use_think and max_tokens < 6000 else max_tokens
     body: dict[str, Any] = {
         "model": model,
@@ -254,11 +259,8 @@ def _direct_call_json(model: str, messages: list[dict], *, mode: str, purpose: s
         "max_tokens": eff_max,
         "temperature": temperature,
         "response_format": {"type": "json_object"},
+        "reasoning": {"enabled": True, "effort": mode} if use_think else {"enabled": False},
     }
-    if mode == "low":
-        body["reasoning_effort"] = "low"
-    else:
-        body["reasoning"] = {"enabled": use_think}
     last_err = ""
     for attempt in range(2):
         try:
@@ -307,9 +309,9 @@ def judge_answer(case: dict, candidate_model: str, parsed: dict | None, det: dic
             "judge_model": "deterministic", "trap_passed": False, "hallucination": True,
             "faithfulness": 0.0, "abstention_ok": False, "reason": "невалидный JSON / пустой ответ", "cost": 0.0,
         }
-    # Cross-family судья: Kimi судит все остальные модели; DeepSeek (с мышлением) судит Kimi
+    # Cross-family судья: Kimi судит все остальные модели; DeepSeek (medium effort) судит Kimi
     if candidate_model == "moonshotai/kimi-k2.6":
-        j_model, j_mode = "deepseek/deepseek-v4.1-flash", "on"
+        j_model, j_mode = "deepseek/deepseek-v4.1-flash", "medium"
     else:
         j_model, j_mode = "moonshotai/kimi-k2.6", "off"
 
@@ -462,14 +464,20 @@ def main() -> None:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Поддержка инкрементального сохранения (совместимость со старым полем think: bool)
+    # Поддержка инкрементального сохранения (формат v2.0: off / low / medium / high через reasoning.effort)
     existing_rows: dict[tuple[str, str, str], dict] = {}
     if out_path.exists():
         try:
             prev = json.loads(out_path.read_text(encoding="utf-8"))
+            is_v2 = str((prev.get("meta") or {}).get("benchmark", "")).startswith("Alfi-FaithBench v2")
             for r in prev.get("rows") or []:
+                m_key = r.get("mode") or ("on" if r.get("think") else "off")
+                # Из старых файлов v1 берём только off (low/medium/high перепрогоняем на новом формате reasoning.effort)
+                if m_key not in ("off", "low", "medium", "high"):
+                    continue
+                if not is_v2 and m_key != "off":
+                    continue
                 if r.get("schema_ok") or not r.get("error"):
-                    m_key = r.get("mode") or ("on" if r.get("think") else "off")
                     r["mode"] = m_key
                     existing_rows[(r["model"], m_key, r["case_id"])] = r
         except Exception:  # noqa: BLE001
@@ -486,7 +494,7 @@ def main() -> None:
         db._local = threading.local()
         db.init()
 
-        print(f"Alfi-FaithBench: {len(CONFIGS)} конфигов × {len(cases)} кейсов = {len(CONFIGS) * len(cases)} прогонов", flush=True)
+        print(f"Alfi-FaithBench v2.0: {len(CONFIGS)} конфигов × {len(cases)} кейсов = {len(CONFIGS) * len(cases)} прогонов", flush=True)
         for model, mode in CONFIGS:
             label = f"{model} [{mode}]"
             t_cfg = time.time()
@@ -525,13 +533,13 @@ def main() -> None:
 
             payload = {
                 "meta": {
-                    "benchmark": "Alfi-FaithBench v1.1",
+                    "benchmark": "Alfi-FaithBench v2.0",
                     "inspiration": ["RAGTruth", "FaithBench", "FActScore", "SimpleQA-Abstention"],
                     "cases": len(cases),
                     "categories": sorted({c["category"] for c in cases}),
                     "configs": len(CONFIGS),
-                    "modes": ["off", "low", "on"],
-                    "judge_policy": "cross-family (kimi-k2.6 for non-Kimi; deepseek-v4.1-flash+reasoning for Kimi)",
+                    "modes": ["off", "low", "medium", "high"],
+                    "judge_policy": "cross-family (kimi-k2.6 off for non-Kimi; deepseek-v4.1-flash medium for Kimi)",
                     "total_gen_rub": round(total_gen_rub, 2),
                     "total_judge_rub": round(total_judge_rub, 2),
                     "total_spend_rub": round(total_gen_rub + total_judge_rub, 2),
@@ -542,11 +550,11 @@ def main() -> None:
             }
             out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print("\n=== ИТОГОВАЯ ТАБЛИЦА Alfi-FaithBench (сортировка: минимум галлюцинаций) ===", flush=True)
-    print(f"{'Модель':34s} {'Мысл':4s} {'Галлюц↓':8s} {'Ловуш↑':8s} {'Верн↑':6s} {'Цифры↑':7s} {'JSON↑':6s} {'Сек':5s} {'₽/выз':7s} {'Выз/600₽':8s}")
+    print("\n=== ИТОГОВАЯ ТАБЛИЦА Alfi-FaithBench v2.0 (сортировка: минимум галлюцинаций) ===", flush=True)
+    print(f"{'Модель':34s} {'Eff':6s} {'Галлюц↓':8s} {'Ловуш↑':8s} {'Верн↑':6s} {'Цифры↑':7s} {'JSON↑':6s} {'Сек':5s} {'₽/выз':7s} {'Выз/600₽':8s}")
     for s in sorted(summaries, key=lambda x: (x["hallucination_rate"], -x["trap_pass_rate"], x["avg_cost_rub"])):
         print(
-            f"{s['model']:34s} {s['mode']:4s} "
+            f"{s['model']:34s} {s['mode']:6s} "
             f"{s['hallucination_rate']*100:6.1f}%  {s['trap_pass_rate']*100:6.1f}%  "
             f"{s['faithfulness']:5.3f}  {s['numbers_ok_rate']*100:5.1f}%  "
             f"{s['schema_ok_rate']*100:4.0f}%  {s['avg_sec']:4.1f}  "

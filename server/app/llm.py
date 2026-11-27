@@ -165,22 +165,19 @@ def chat(
     chain = [primary] + ([config.MODELS["fallback"]] if primary != config.MODELS["fallback"] and role != "vision" else [])
     use_reasoning = config.reasoning_enabled(purpose, reasoning)
     effort = config.reasoning_effort_for(purpose, reasoning_effort) if use_reasoning else ""
-    headroom = 768 if effort == "low" else 2048
+    headroom = {"low": 1024, "medium": 2048, "high": 3072}.get(effort, 2048)
     eff_max_tokens = min(max_tokens + headroom, 8192) if use_reasoning and max_tokens < 6000 else max_tokens
     last_err = ""
     for mi, m in enumerate(chain):
         if m not in config.ALLOWED_MODELS:
             raise LLMError(f"Модель {m} не из списка кейса")
-        # По замерам Alfi-FaithBench у qwen3.6-35b reasoning/low ломает JSON (28%): на запасной модели всегда выключаем
-        m_reasoning = False if (mi > 0 and m == "qwen/qwen3.6-35b-a3b") else use_reasoning
+        # На запасной модели всегда выключаем reasoning для максимальной надёжности и скорости
+        m_reasoning = False if mi > 0 else use_reasoning
         m_effort = effort if m_reasoning else ""
         body: dict[str, Any] = {
             "model": m, "messages": messages, "max_tokens": eff_max_tokens, "temperature": temperature,
+            "reasoning": {"enabled": True, "effort": m_effort} if (m_reasoning and m_effort) else {"enabled": m_reasoning},
         }
-        if m_reasoning and m_effort:
-            body["reasoning_effort"] = m_effort
-        else:
-            body["reasoning"] = {"enabled": m_reasoning}
         if json_mode:
             body["response_format"] = {"type": "json_object"}
         if tools:

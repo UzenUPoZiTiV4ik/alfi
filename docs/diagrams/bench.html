@@ -2,11 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Альфи · замеры v2</title>
+<title>Альфи · замеры v3</title>
 <meta name="viewport" content="width=1600">
 <!--
   Слайды замеров. Данные: docs/bench/faithbench.json, results.json, ranking.json.
   Рендер: node docs/diagrams/render.js "$PWD/docs/diagrams/bench.html" docs/diagrams
+  Слайды 08 и 09 оформлены как changelog-карточки (класс .v2, свои стили ниже), слайд 10 в прежнем стиле.
 -->
 <style>
   :root {
@@ -35,7 +36,6 @@
   .tag { display: inline-flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 10px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; }
   .num { font-size: 15px; font-weight: 600; color: var(--muted); }
   h1 { margin-top: 20px; font-size: 46px; line-height: 1.07; font-weight: 800; letter-spacing: -.03em; color: var(--ink); max-width: 1220px; }
-  h1.fit { font-size: 43px; letter-spacing: -.035em; max-width: 1250px; }
   .lead { margin-top: 12px; font-size: 19px; line-height: 1.45; color: var(--muted); max-width: 1150px; }
   .lead b { color: var(--ink); font-weight: 650; }
   .corner { position: absolute; right: 40px; top: 26px; width: 190px; height: 190px; pointer-events: none; }
@@ -48,10 +48,6 @@
   .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
   .k { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
   .card.dark .k { color: rgba(255,255,255,.5); }
-  .ttl { margin-top: 6px; font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; color: var(--ink); }
-  .card.dark .ttl { color: #fff; }
-  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-  .mono { font: 650 14px/1.3 ui-monospace, "SF Mono", Menlo, monospace; }
 
   .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
@@ -60,96 +56,6 @@
 
   .pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 12.5px; font-weight: 800; white-space: nowrap; }
   .pill.g { background: var(--green-soft); color: var(--green); }
-  .pill.r { background: var(--red-soft); color: var(--red-ink); }
-  .pill.m { background: var(--fill); color: #4F5258; }
-  .pill.d { background: var(--dark); color: #fff; }
-
-  /* KPI */
-  .kpis { display: grid; gap: 16px; }
-  .kpi { background: #fff; border-radius: 22px; padding: 18px 22px; min-width: 0; }
-  .kpi b { display: block; font-size: 36px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .kpi span { display: block; margin-top: 7px; font-size: 14px; line-height: 1.38; color: var(--muted); }
-  .kpi.hl b { color: var(--red); }
-  .kpi.gr b { color: var(--green); }
-  .kpi.dark { background: var(--dark); }
-  .kpi.dark b { color: #fff; }
-  .kpi.dark span { color: rgba(255,255,255,.62); }
-
-  svg text { font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; }
-  .chart { flex: 1; min-height: 0; position: relative; }
-  .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-
-  /* ===== 08 FaithBench ===== */
-  .b08 { grid-template-columns: 1fr 520px; grid-template-rows: 1fr auto; }
-  .b08 .faith { display: flex; flex-direction: column; padding: 24px 28px 18px; }
-  .b08 .kpis { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
-  .budget { flex: 1; display: flex; flex-direction: column; padding: 24px 28px; }
-  .brows { margin-top: 8px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-  .brow { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: baseline; }
-  .brow .nm { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; }
-  .brow .nm small { margin-left: 6px; font: 650 12px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
-  .brow .val { font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .brow .trk { grid-column: 1 / -1; height: 8px; border-radius: 6px; background: var(--bg); overflow: hidden; }
-  .brow .trk span { display: block; height: 100%; border-radius: 6px; background: var(--ink); }
-  .brow.best .trk span { background: var(--red); }
-  .brow.best .val { color: var(--red); }
-  .brow.weak .trk span { background: var(--gray); }
-  .brow.weak .val, .brow.weak .nm { color: var(--muted); }
-  .brow .meta { grid-column: 1 / -1; display: flex; gap: 14px; font-size: 12px; line-height: 1.2; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .brow .meta b { color: var(--text); font-weight: 750; }
-  .insight { padding: 18px 24px; border-radius: 22px; }
-  .b08 .kpi { padding: 13px 22px; }
-  .b08 .kpi b { font-size: 33px; }
-  .b08 .kpi span { font-size: 13.5px; margin-top: 5px; }
-  .insight .k { margin-bottom: 8px; }
-  .insight p { font-size: 15.5px; line-height: 1.45; color: rgba(255,255,255,.78); }
-  .insight p b { color: #fff; }
-  .insight p em { font-style: normal; color: #7FD48A; font-weight: 750; }
-
-  /* ===== 09 E2E ===== */
-  .b09 { grid-template-columns: 1fr 500px; }
-  .scatter { flex: 1; display: flex; flex-direction: column; padding: 22px 26px 14px; }
-  .scatter .legend { margin-top: 10px; }
-  .vs { padding: 20px 26px 22px; }
-  .vs-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
-  .vs-grid h4 { font-size: 14px; font-weight: 750; color: var(--ink); margin-bottom: 9px; }
-  .vs-grid h4 span { font-weight: 600; color: var(--muted); }
-  .vb { display: grid; grid-template-columns: 72px 1fr 52px; gap: 9px; align-items: center; margin-top: 7px; }
-  .vb small { font-size: 12.5px; font-weight: 650; color: var(--muted); white-space: nowrap; }
-  .vb i { display: block; height: 14px; border-radius: 5px; background: var(--bg); overflow: hidden; }
-  .vb i span { display: block; height: 100%; border-radius: 5px; background: var(--gray); }
-  .vb em { font-style: normal; text-align: right; font-size: 14.5px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .vb.agent small { color: var(--ink); }
-  .vb.agent i span { background: var(--red); }
-  .vb.agent em { color: var(--ink); }
-  .vs-note { margin-top: 12px; font-size: 13px; line-height: 1.4; color: var(--muted); }
-  .vs-note b { color: var(--ink); }
-
-  .stack { flex: 1; display: flex; flex-direction: column; padding: 26px 28px; }
-  .roles { margin-top: 16px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
-  .role { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
-  .role > i { width: 34px; height: 34px; border-radius: 10px; background: rgba(239,49,36,.22); color: #FF8A80; display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 800; }
-  .role.main > i { background: var(--red); color: #fff; }
-  .role .rn { font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: rgba(255,255,255,.5); }
-  .role .rm { margin-top: 3px; font: 700 16px/1.25 ui-monospace, "SF Mono", Menlo, monospace; color: #fff; }
-  .role .rm small { font: 650 12.5px/1 Inter, -apple-system, sans-serif; margin-left: 6px; padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,.12); color: rgba(255,255,255,.8); }
-  .role .rd { margin-top: 5px; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.58); }
-  .role .rf { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .role .rf span { height: 26px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; background: rgba(255,255,255,.08); font-size: 13px; font-weight: 650; color: rgba(255,255,255,.88); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .role .rf span.hot { background: rgba(239,49,36,.24); color: #FFB3AC; }
-  .role .rf span.ok { background: rgba(127,212,138,.16); color: #9BE3A4; }
-  .opt { margin-top: 10px; border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); }
-  .opt .ot { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.82); }
-  .opt .ot b { color: #fff; }
-  .ob { margin-top: 8px; display: grid; grid-template-columns: 40px 1fr auto; gap: 9px; align-items: center; }
-  .ob small { font: 700 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace; color: rgba(255,255,255,.6); white-space: nowrap; }
-  .ob strong { justify-self: start; height: 22px; padding: 0 8px; border-radius: 7px; display: inline-flex; align-items: center; background: rgba(127,212,138,.16); color: #9BE3A4; font-size: 12.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ob em { font-style: normal; text-align: right; font-size: 13px; font-weight: 750; color: rgba(255,255,255,.75); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ob.fast em { color: #fff; }
-  .b09 .kpis { grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  .b09 .kpi { padding: 16px 18px; }
-  .b09 .kpi b { font-size: 32px; }
-  .b09 .kpi span { font-size: 13px; }
 
   /* ===== 10 Ranking ===== */
   .b10 { grid-template-columns: 1fr 500px; }
@@ -208,136 +114,207 @@
   .vchips { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 7px; }
   .vchips span { height: 30px; padding: 0 11px; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7); white-space: nowrap; }
   .vchips b { color: #7FD48A; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* ===== 08-09: стиль changelog-карточек, всё под .v2 ===== */
+  .slide.v2 {
+    --red-soft: #FBD3CF;
+    --ink: #1A1A1C;
+    --hair: rgba(26, 26, 28, .1);
+    --was: #C5C7CB;
+    --noise: #E3E4E7;
+    padding: 52px 72px 48px;
+    color: var(--ink);
+  }
+  .v2 code { font: 700 14px/1.25 ui-monospace, "SF Mono", Menlo, monospace; }
+  .v2 h1 { margin-top: 16px; font-size: 44px; max-width: none; }
+  .v2 .lead { max-width: 1250px; font-size: 17px; }
+  .v2 .corner { top: 18px; width: 170px; height: 170px; }
+
+  .v2 .body { margin-top: 22px; grid-template-columns: 1fr 540px; }
+  .v2 .col { gap: 14px; }
+  .v2 .card { border-radius: 24px; padding: 20px 26px; }
+  .v2 .grow { flex: 1; display: flex; flex-direction: column; }
+
+  .v2 .head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .v2 h2 { font-size: 21px; line-height: 1.2; font-weight: 750; letter-spacing: -.015em; }
+  .v2 .sub { margin-top: 5px; font-size: 15px; line-height: 1.42; color: var(--muted); }
+  .v2 .sub b { color: var(--ink); font-weight: 650; }
+  .v2 .legend { flex-wrap: nowrap; gap: 14px; font-size: 14px; font-weight: 400; white-space: nowrap; }
+  .v2 .legend span { gap: 6px; }
+  .v2 .nw { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .v2 .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--hair); font-size: 14.5px; line-height: 1.42; color: var(--muted); }
+  .v2 .foot b { color: var(--ink); font-weight: 700; }
+
+  .v2 .who b { display: block; font: 700 14.5px/1.2 ui-monospace, "SF Mono", Menlo, monospace; }
+  .v2 .who small { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+
+  /* Тепловая сетка: модели × режимы */
+  .v2 .heat { margin-top: 14px; display: grid; grid-template-columns: 190px repeat(4, 1fr); gap: 4px; align-items: center; }
+  .v2 .heat .hd { padding-bottom: 4px; font-size: 14px; font-weight: 700; color: var(--muted); text-align: center; }
+  .v2 .heat .hd small { display: block; font-size: 12.5px; font-weight: 500; }
+  .v2 .heat .hd:first-child { text-align: left; }
+  .v2 .heat .cell { height: 40px; border-radius: 8px; display: grid; place-items: center; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .v2 .heat .cell.zero { background: var(--bg); color: var(--ink); box-shadow: inset 0 0 0 2px var(--red); }
+  .v2 .heat .cell.none { background: none; color: var(--muted); font-size: 13.5px; font-weight: 600; }
+  .v2 .scale-key { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); }
+  .v2 .scale-key i { width: 220px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--bg), var(--red)); }
+  .v2 .takeaway { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--hair); font-size: 15.5px; line-height: 1.45; }
+  .v2 .takeaway b { font-weight: 750; }
+
+  /* Горизонтальные столбики с подписью */
+  .v2 .hbars { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .v2 .hbar { display: grid; grid-template-columns: 340px 1fr 52px; gap: 12px; align-items: center; }
+  .v2 .hbar > span { font-size: 15px; line-height: 1.25; }
+  .v2 .hbar i { display: block; height: 16px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .v2 .hbar i u { display: block; height: 100%; min-width: 4px; border-radius: 5px; background: var(--was); }
+  .v2 .hbar.hot i u { background: var(--red); }
+  .v2 .hbar em { font-style: normal; text-align: right; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* Строки «модель: столбик + цифры» */
+  .v2 .brows { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .v2 .brow { display: grid; grid-template-columns: 170px 1fr 74px; gap: 4px 12px; align-items: center; }
+  .v2 .brow i { display: block; height: 16px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .v2 .brow i u { display: block; height: 100%; min-width: 4px; border-radius: 5px; background: var(--was); }
+  .v2 .brow.hot i u { background: var(--red); }
+  .v2 .brow em { font-style: normal; text-align: right; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .v2 .brow.hot em { color: var(--red-ink); }
+  .v2 .brow .meta { grid-column: 2 / -1; margin-top: -2px; font-size: 13.5px; color: var(--muted); }
+
+  /* Роли моделей */
+  .v2 .layers { margin-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+  .v2 .layer { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; min-height: 46px; padding: 6px 14px; border-radius: 8px; background: var(--noise); }
+  .v2 .layer.top { background: var(--red); color: #fff; }
+  .v2 .layer.top span, .v2 .layer.top b { color: #fff; }
+  .v2 .layer.top small { color: rgba(255, 255, 255, .82); }
+  .v2 .layer.mod { background: var(--red-soft); }
+  .v2 .layer.mod b, .v2 .layer.mod span { color: var(--red-ink); }
+  .v2 .layer > b { font-size: 14.5px; font-weight: 750; }
+  .v2 .layer > span { font-size: 14px; line-height: 1.3; color: #55585E; }
+  .v2 .layer > span code { font-size: 13.5px; }
+  .v2 .layer > span small { display: block; font-size: 13px; color: #6D7076; }
+
+  /* Таблица со столбиками в ячейках */
+  .v2 .mtable { margin-top: 12px; display: grid; gap: 8px 16px; align-items: center; }
+  .v2 .mtable .hd { font-size: 13.5px; font-weight: 700; color: var(--muted); line-height: 1.25; }
+  .v2 .mtable .hd small { display: block; font-size: 12.5px; font-weight: 500; }
+  .v2 .mcell em { display: block; font-style: normal; font-size: 15.5px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .v2 .mcell i { display: block; margin-top: 4px; height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+  .v2 .mcell i u { display: block; height: 100%; min-width: 3px; border-radius: 4px; background: var(--was); }
+  .v2 .mcell.best em { color: var(--red-ink); font-weight: 800; }
+  .v2 .mcell.best i u { background: var(--red); }
+  .v2 .mrow-line { grid-column: 1 / -1; height: 1px; background: var(--hair); }
+
+  /* Агент против одного вызова */
+  .v2 .vs { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+  .v2 .vs h3 { font-size: 14.5px; font-weight: 750; }
+  .v2 .vs h3 small { font-weight: 500; color: var(--muted); }
+  .v2 .vb { margin-top: 7px; display: grid; grid-template-columns: 1fr 48px; gap: 2px 8px; align-items: center; }
+  .v2 .vb small { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+  .v2 .vb i { display: block; height: 12px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+  .v2 .vb i u { display: block; height: 100%; min-width: 3px; border-radius: 4px; background: var(--was); }
+  .v2 .vb.agent i u { background: var(--red); }
+  .v2 .vb em { font-style: normal; text-align: right; font-size: 14.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .v2 .vb.agent em { color: var(--red-ink); }
 </style>
 </head>
 <body>
 
-<!-- 08. Alfi-FaithBench: галлюцинации по 6 моделям и режимам мышления -->
-<section class="slide" data-name="08-bench-faith">
+<!-- 08. Alfi-FaithBench: какая модель меньше всего выдумывает -->
+<section class="slide v2" data-name="08-bench-faith">
   <div class="top"><span class="tag">Замеры · галлюцинации</span><span class="num">1 / 3</span></div>
-  <h1 class="fit">Alfi-FaithBench: галлюцинации на 4 уровнях усилий</h1>
-  <p class="lead"><b>6 моделей × off / low / medium / high</b> на <b>18 кейсах-ловушках</b>: выдуманные цифры, перенос роста рынка, конфликт источников, атрибуция банка, смешение юрлиц, неполные данные. Судья другого семейства.</p>
+  <h1>Какая модель меньше всего выдумывает</h1>
+  <p class="lead">Alfi-FaithBench: <b>18 кейсов-ловушек × 6 моделей × 4 режима рассуждений = 378 прогонов</b>. Каждый ответ проверяют код (цифры, ссылки, JSON) и судья из другой семьи моделей.</p>
   <span class="corner" data-cat="tax"></span>
-  <div class="body b08">
-    <div class="card faith">
-      <div class="head-row">
-        <div><div class="k">Доля галлюцинаций на 18 ловушках · меньше = лучше</div></div>
-        <div class="legend"><span><i style="background:var(--dark)"></i>off</span><span><i style="background:#C4C7CC"></i>low</span><span><i style="background:#7D8087"></i>medium</span><span><i style="background:var(--red)"></i>high</span></div>
-      </div>
-      <div class="chart" id="faith-chart"></div>
-    </div>
+
+  <div class="body">
     <div class="col">
-      <div class="card budget">
-        <div class="k">Сколько вызовов влезает в 600 ₽/день</div>
-        <div class="brows">
-          <div class="brow best"><span class="nm">gemma-4-26b<small>off</small></span><span class="val">32 564</span><div class="trk"><span style="width:100%"></span></div><div class="meta"><span><b>0,018 ₽</b>/выз</span><span><b>3,4 с</b></span><span>разметка RSS</span></div></div>
-          <div class="brow"><span class="nm">glm-5.3-flash<small>off</small></span><span class="val">13 525</span><div class="trk"><span style="width:41.53%"></span></div><div class="meta"><span><b>0,044 ₽</b>/выз</span><span><b>6,9 с</b></span><span>критик</span></div></div>
-          <div class="brow"><span class="nm">qwen3.6-35b<small>off</small></span><span class="val">12 103</span><div class="trk"><span style="width:37.17%"></span></div><div class="meta"><span><b>0,050 ₽</b>/выз</span><span><b>3,4 с</b></span><span>запасная</span></div></div>
-          <div class="brow"><span class="nm">glm-5.3-flash<small>high</small></span><span class="val">10 653</span><div class="trk"><span style="width:32.71%"></span></div><div class="meta"><span><b>0,056 ₽</b>/выз</span><span><b>11,3 с</b></span><span>тоже 0% галлюцинаций</span></div></div>
-          <div class="brow"><span class="nm">deepseek-v4.1-flash<small>off</small></span><span class="val">10 472</span><div class="trk"><span style="width:32.16%"></span></div><div class="meta"><span><b>0,057 ₽</b>/выз</span><span><b>4,9 с</b></span><span>основной агент</span></div></div>
-          <div class="brow weak"><span class="nm">kimi-k2.6<small>off</small></span><span class="val">1 760</span><div class="trk"><span style="width:5.4%"></span></div><div class="meta"><span><b>0,341 ₽</b>/выз</span><span><b>8,3 с</b></span><span>не берём</span></div></div>
-          <div class="brow weak"><span class="nm">kimi-k2.6<small>medium</small></span><span class="val">444</span><div class="trk"><span style="width:1.36%"></span></div><div class="meta"><span><b>1,35 ₽</b>/выз</span><span><b>42,4 с</b></span><span>не берём</span></div></div>
+      <div class="card grow">
+        <div class="head">
+          <h2>Доля ответов с выдумкой</h2>
+          <div class="legend"><span>меньше = лучше</span></div>
+        </div>
+        <div class="heat" id="heat"></div>
+        <div class="scale-key"><span>0%</span><i></i><span>44%</span><span style="margin-left:14px">красная рамка = ни одной выдумки</span></div>
+        <p class="takeaway"><b>Рассуждения не помогают.</b> У каждой модели режим off выдумывает не больше остальных, а low / medium / high работают дольше (до ×5) и стоят дороже (до ×6).</p>
+      </div>
+
+      <div class="card">
+        <div class="head">
+          <h2>На чём модели попадаются</h2>
+          <div class="legend"><span>доля провалов, 63 прогона на тип</span></div>
+        </div>
+        <div class="hbars" id="traps"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="head">
+          <h2>Сколько стоит режим off</h2>
+        </div>
+        <p class="sub">Сколько вызовов влезает в бюджет шлюза <b>600 ₽ в день</b>.</p>
+        <div class="brows" id="budget"></div>
+      </div>
+
+      <div class="card grow">
+        <h2>Кого куда поставили</h2>
+        <div class="layers">
+          <div class="layer top"><b>Критик</b><span><code>glm-5.3-flash</code> · off<small>0% выдумок, 0,044 ₽ за проверку</small></span></div>
+          <div class="layer mod"><b>Разметка новостей</b><span><code>gemma-4</code> · off<small>самая дешёвая и быстрая: 0,018 ₽, 3,4 с</small></span></div>
+          <div class="layer mod"><b>Агент и чат</b><span><code>deepseek-v4.1</code> · off<small>выбран по сквозному замеру, следующий слайд</small></span></div>
+          <div class="layer"><b>Запасная</b><span><code>qwen3.6</code> · off<small>подхватывает, если основная недоступна</small></span></div>
+          <div class="layer"><b>Только судья</b><span><code>kimi-k2.6</code><small>в работу не берём: в 6-8 раз дороже</small></span></div>
         </div>
       </div>
-      <div class="card dark insight">
-        <div class="k">Главный вывод</div>
-        <p>Усилия не помогают: <b>off</b> не хуже low / medium / high у всех. <b style="white-space:nowrap">GLM-5.3</b> держит <em>0%</em> за 0,044 ₽ и стал критиком.</p>
-      </div>
-    </div>
-    <div class="kpis">
-      <div class="kpi gr"><b>0,0%</b><span>галлюцинаций у glm-5.3-flash<br>на off, medium и high</span></div>
-      <div class="kpi hl"><b>32 564</b><span>вызова gemma-4 (off) в 600 ₽/день<br>по 0,018 ₽ за 3,4 с</span></div>
-      <div class="kpi"><b>×7,7 / ×24</b><span>дороже kimi-k2.6, чем glm-5.3:<br>0,341 ₽ на off и 1,35 ₽ на medium</span></div>
-      <div class="kpi dark"><b>378</b><span>прогонов: 21 конфигурация × 18<br>ловушек, off / low / medium / high</span></div>
     </div>
   </div>
 </section>
 
-<!-- 09. Сквозной агент: цена, скорость, качество -->
-<section class="slide" data-name="09-bench-e2e">
+<!-- 09. Сквозной агент: почему deepseek без рассуждений -->
+<section class="slide v2" data-name="09-bench-e2e">
   <div class="top"><span class="tag">Замеры · сквозной агент</span><span class="num">2 / 3</span></div>
-  <h1 class="fit">Сквозной агент: цена, скорость и качество (65 прогонов)</h1>
-  <p class="lead"><b>13 вариантов × 5 событий</b> из разных отраслей на реальной базе знаний Альфа-Банка: 5 моделей в off, уровни усилий <span style="white-space:nowrap">low / medium / high</span> и одиночные вызовы для сравнения.</p>
+  <h1>Почему агентом стал deepseek без рассуждений</h1>
+  <p class="lead">Alfi-E2E: <b>5 событий × 13 вариантов = 65 полных прогонов</b> на реальной базе знаний Альфа-Банка. События: зерно в Алжир, акциз на напитки, банкротство АЗС «Трасса», ставка ЦБ для стройки, импорт из Китая с уточнением клиента.</p>
   <span class="corner" data-cat="money"></span>
-  <div class="body b09">
+
+  <div class="body">
     <div class="col">
-      <div class="card scatter">
-        <div class="head-row">
-          <div class="k">Время разбора против цены · каждая точка = 5 прогонов · обе оси логарифмические</div>
+      <div class="card">
+        <div class="head">
+          <h2>5 моделей в роли агента, режим off</h2>
+          <div class="legend"><span><i style="background:var(--red)"></i>лучший в столбце</span></div>
         </div>
-        <div class="legend">
-          <span><i class="dot" style="background:var(--green)"></i>цифры 100%</span>
-          <span><i class="dot" style="background:var(--amber)"></i>цифры 80%</span>
-          <span><i class="dot" style="background:var(--red)"></i>цифры ≤ 60%</span>
-          <span><i class="dot" style="background:#fff;border:2.5px solid var(--ink)"></i>размер = оценка критика</span>
-          <span><i class="dot" style="background:#fff;border:2px dashed var(--ink)"></i>опция</span>
-          <span><i style="background:var(--green-soft);border:1.5px dashed var(--green)"></i>зона оптимума</span>
-        </div>
-        <div class="chart" id="e2e-chart"></div>
+        <div class="mtable" id="models" style="grid-template-columns: 170px repeat(5, 1fr)"></div>
+        <p class="foot"><b>Оговорка:</b> разборы deepseek проверял критик glm, а остальных проверял deepseek. Строгость у критиков разная, поэтому оценку смотрим вместе с цифрами, сносками и ценой.</p>
       </div>
-      <div class="card vs">
-        <div class="k">Агент против одного вызова модели</div>
-        <div class="vs-grid">
-          <div>
-            <h4>Источников в разборе</h4>
-            <div class="vb agent"><small>агент</small><i><span style="width:100%"></span></i><em>25,4</em></div>
-            <div class="vb"><small>1 + банк</small><i><span style="width:32.3%"></span></i><em>8,2</em></div>
-            <div class="vb"><small>1 без базы</small><i><span style="width:20.5%"></span></i><em>5,2</em></div>
-          </div>
-          <div>
-            <h4>Правила <span>· из 51</span></h4>
-            <div class="vb agent"><small>агент</small><i><span style="width:94.1%"></span></i><em>94,1%</em></div>
-            <div class="vb"><small>1 + банк</small><i><span style="width:88.2%"></span></i><em>88,2%</em></div>
-            <div class="vb"><small>1 без базы</small><i><span style="width:96.1%"></span></i><em>96,1%</em></div>
-          </div>
-          <div>
-            <h4>Оценка критика</h4>
-            <div class="vb agent"><small>агент</small><i><span style="width:92.7%"></span></i><em>0,927</em></div>
-            <div class="vb"><small>1 + банк</small><i><span style="width:74%"></span></i><em>0,740</em></div>
-            <div class="vb"><small>1 без базы</small><i><span style="width:72.2%"></span></i><em>0,722</em></div>
-          </div>
+
+      <div class="card grow">
+        <div class="head">
+          <h2>Агент против одного вызова модели</h2>
+          <div class="legend"><span>та же модель и тот же критик</span></div>
         </div>
-        <p class="vs-note">Один вызов формально проходит правила, но в <b>3–5 раз беднее источниками</b>: нет поиска доп. новостей, контрагентов, группы и петли доработки.</p>
+        <div class="vs" id="vs"></div>
+        <p class="foot">Один вызов в 2 раза быстрее и дешевле, но <b>в 3-5 раз беднее источниками</b>: нет поиска похожих новостей, контрагентов, группы и петли доработки.</p>
       </div>
     </div>
+
     <div class="col">
-      <div class="card dark stack">
-        <div class="k">Выбранный стек · бюджет 600 ₽/день</div>
-        <div class="roles">
-          <div class="role main"><i>1</i><div>
-            <div class="rn">Агент и чат</div>
-            <div class="rm">deepseek-v4.1-flash<small>off</small></div>
-            <div class="rf"><span>51,6 с</span><span>0,86 ₽</span><span class="hot">698 шт/день</span><span>критик 0,927</span></div>
-            <div class="opt">
-              <div class="ot">Опции строгости: <b>selective low / high</b></div>
-              <div class="ob fast"><small>low</small><strong>100% цифр</strong><em>98,5 с · 1,20 ₽</em></div>
-              <div class="ob fast"><small>high</small><strong>критик 0,930 · 12,8 сносок</strong><em>115,6 с · 1,39 ₽</em></div>
-            </div>
-          </div></div>
-          <div class="role"><i>2</i><div>
-            <div class="rn">Критик</div>
-            <div class="rm">glm-5.3-flash<small>off</small></div>
-            <div class="rd">проверяет каждый разбор по 6 осям</div>
-            <div class="rf"><span class="ok">0% галлюцинаций</span><span>0,044 ₽/выз</span></div>
-          </div></div>
-          <div class="role"><i>3</i><div>
-            <div class="rn">Разметка новостей</div>
-            <div class="rm">gemma-4-26b<small>off</small></div>
-            <div class="rd">триаж RSS: отрасль, тип и значимость новости</div>
-            <div class="rf"><span>0,018 ₽/выз</span><span>3,4 с</span></div>
-          </div></div>
-          <div class="role"><i>4</i><div>
-            <div class="rn">Запасная модель</div>
-            <div class="rm">qwen3.6-35b<small>off</small></div>
-            <div class="rd">подхватывает, если основная модель недоступна</div>
-            <div class="rf"><span>44,9 с</span><span class="ok">100% цифр</span></div>
-          </div></div>
+      <div class="card">
+        <div class="head">
+          <h2>Рассуждения для deepseek</h2>
         </div>
+        <div class="mtable" id="effort" style="grid-template-columns: 84px repeat(4, 1fr)"></div>
+        <p class="foot"><b>off</b> вдвое быстрее и дешевле при той же оценке. <b>low</b> даёт 100% подтверждённых цифр и включается одной переменной окружения.</p>
       </div>
-      <div class="kpis">
-        <div class="kpi hl"><b>698</b><span>разборов в день<br>на 600 ₽</span></div>
-        <div class="kpi gr"><b>0,927</b><span>критик на off,<br>high: 0,930 за +61%</span></div>
-        <div class="kpi"><b>×5,7</b><span>дешевле Kimi:<br>0,86 против 4,92 ₽</span></div>
+
+      <div class="card grow">
+        <h2>Итог: стек на 600 ₽ в день</h2>
+        <div class="layers">
+          <div class="layer top"><b>Агент и чат</b><span><code>deepseek-v4.1</code> · off<small>0,86 ₽ и 51,6 с на разбор, 698 разборов в день</small></span></div>
+          <div class="layer mod"><b>Критик</b><span><code>glm-5.3-flash</code> · off<small>6 осей, 0% выдумок в FaithBench</small></span></div>
+          <div class="layer mod"><b>Разметка новостей</b><span><code>gemma-4</code> · off<small>отрасль, тип и значимость, 0,018 ₽</small></span></div>
+          <div class="layer"><b>Запасная</b><span><code>qwen3.6</code> · off<small>100% цифр, 44,9 с</small></span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -386,7 +363,7 @@
       </div>
       <div class="card dark verdict">
         <div class="k">Итог</div>
-        <p>Лента сжалась с <b>13,2 до 4,8</b> новости: остались прямые отраслевые и реальные макрособытия (ЦБ, налоги), мусор в топ-5 сведён к <b>0%</b>.</p>
+        <p>Лента сжалась с <b>13,2 до 4,8</b> новости: остались прямые отраслевые и реальные макрособытия (ЦБ, налоги), мусор в топ-5 сведён к <b>0%</b>.</p>
         <div class="vchips"><span><b>1,000</b> HitRate@3</span><span><b>1,000</b> MRR</span><span>в обеих версиях</span></div>
       </div>
     </div>
@@ -396,289 +373,169 @@
 <script src="../../web/js/mascot.js"></script>
 <script src="../../web/js/mascot-reference.js"></script>
 <script>
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  function svgNode(tag, attrs, text) {
-    const node = document.createElementNS(SVG_NS, tag);
-    Object.entries(attrs || {}).forEach(([key, value]) => node.setAttribute(key, value));
-    if (text !== undefined) {
-      node.textContent = text;
-    }
-    return node;
-  }
-
-  function makeSvg(host) {
-    const width = host.clientWidth;
-    const height = host.clientHeight;
-    const svg = svgNode('svg', { width, height, viewBox: `0 0 ${width} ${height}` });
-    host.appendChild(svg);
-    return { svg, width, height };
-  }
-
-  function fmt(value, digits) {
+  function comma(value, digits) {
     return value.toFixed(digits).replace('.', ',');
   }
 
-  const COLORS = {
-    ink: '#0B0B0C',
-    dark: '#151517',
-    gray: '#A3A6AD',
-    red: '#EF3124',
-    redInk: '#C21F14',
-    redSoft: '#FDECEA',
-    green: '#2E8A3A',
-    greenSoft: '#E6F3E8',
-    amber: '#B87500',
-    muted: '#6D7076',
-    fill: '#EAEBED',
-    grid: '#E8EAED',
-  };
-
-  /* ---------- 08: галлюцинации по моделям, данные faithbench.json ---------- */
-  const FAITH_MODES = ['off', 'low', 'medium', 'high'];
-
-  const FAITH_FILL = {
-    off: COLORS.dark,
-    low: '#C4C7CC',
-    medium: '#7D8087',
-    high: COLORS.red,
-  };
-
-  // note: серая плашка рядом с баром, alert: штриховка и красная плашка
-  const FAITH = [
-    { model: 'glm-5.3-flash', vendor: 'Z.ai · критик', off: 0.0, low: 11.11, medium: 0.0, high: 0.0 },
-    { model: 'gemma-4-26b', vendor: 'Google · разметка', off: 5.56, low: 16.67, medium: 16.67, high: 11.11, notes: { medium: 'JSON 89%' } },
-    { model: 'deepseek-v4.1-flash', vendor: 'DeepSeek · агент', off: 5.56, low: 16.67, medium: 11.11, high: 16.67 },
-    { model: 'qwen3.6-35b', vendor: 'Qwen · запасная (off)', off: 11.11, low: 44.44, medium: 22.22, high: 11.11, alert: 'low', notes: { medium: 'JSON 94%', high: '0,287 ₽/выз' } },
-    { model: 'kimi-k2.6', vendor: 'Moonshot · до 1,35 ₽/выз', off: 11.11, low: 22.22, medium: 16.67, high: 33.33, notes: { high: '1,33 ₽/выз' } },
-    { model: 'qwen3-vl-30b', vendor: 'Qwen · только OCR PDF', off: 22.22, low: null, medium: null, high: null },
+  /* ---------- 08: доля выдумок, данные faithbench.json ---------- */
+  const HEAT_MAX = 44.4;
+  const faith = [
+    { name: 'glm-5.3-flash', role: 'критик', off: 0, low: 11.1, medium: 0, high: 0 },
+    { name: 'gemma-4', role: 'разметка новостей', off: 5.6, low: 16.7, medium: 16.7, high: 11.1 },
+    { name: 'deepseek-v4.1', role: 'агент и чат', off: 5.6, low: 16.7, medium: 11.1, high: 16.7 },
+    { name: 'qwen3.6', role: 'запасная', off: 11.1, low: 44.4, medium: 22.2, high: 11.1 },
+    { name: 'kimi-k2.6', role: 'только судья', off: 11.1, low: 22.2, medium: 16.7, high: 33.3 },
+    { name: 'qwen3-vl', role: 'читает сканы', off: 22.2, low: null, medium: null, high: null },
   ];
+  const MODES = ['off', 'low', 'medium', 'high'];
 
-  function drawFaith(host) {
-    const { svg, width, height } = makeSvg(host);
-    const defs = svgNode('defs');
-    const hatch = svgNode('pattern', { id: 'hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
-    hatch.appendChild(svgNode('rect', { width: 8, height: 8, fill: COLORS.red }));
-    hatch.appendChild(svgNode('rect', { width: 3, height: 8, fill: '#B81C10' }));
-    defs.appendChild(hatch);
-    svg.appendChild(defs);
-
-    const plotLeft = 248;
-    const plotRight = width - 8;
-    const axisBottom = height - 26;
-    const plotTop = 12;
-    // Шкала до 60%: максимум 44,4% (qwen low), справа остаётся место под плашку
-    const maxValue = 60;
-    const xOf = (value) => plotLeft + (value / maxValue) * (plotRight - plotLeft);
-    const groupHeight = (axisBottom - plotTop) / FAITH.length;
-    const barHeight = 11;
-    const barGap = 4;
-
-    // Сетка и шкала
-    [0, 10, 20, 30, 40, 50, 60].forEach((tick) => {
-      const x = xOf(tick);
-      svg.appendChild(svgNode('line', { x1: x, x2: x, y1: plotTop - 6, y2: axisBottom, stroke: tick === 0 ? '#C9CBD0' : COLORS.grid, 'stroke-width': tick === 0 ? 1.5 : 1, 'stroke-dasharray': tick === 0 ? '' : '3 4' }));
-      svg.appendChild(svgNode('text', { x, y: axisBottom + 18, 'text-anchor': tick === maxValue ? 'end' : 'middle', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, tick + '%'));
-    });
-
-    FAITH.forEach((row, index) => {
-      const groupTop = plotTop + index * groupHeight;
-      const stackHeight = barHeight * FAITH_MODES.length + barGap * (FAITH_MODES.length - 1);
-      const firstBarY = groupTop + (groupHeight - stackHeight) / 2;
-
-      if (index > 0) {
-        svg.appendChild(svgNode('line', { x1: 0, x2: plotRight, y1: groupTop, y2: groupTop, stroke: '#EEF0F2', 'stroke-width': 1 }));
-      }
-
-      const centerY = groupTop + groupHeight / 2;
-      svg.appendChild(svgNode('text', { x: 0, y: centerY - 3, 'font-size': 16.5, 'font-weight': 750, fill: COLORS.ink, class: 'lbl' }, row.model));
-      svg.appendChild(svgNode('text', { x: 0, y: centerY + 16, 'font-size': 12.5, 'font-weight': 600, fill: COLORS.muted, class: 'lbl' }, row.vendor));
-
-      FAITH_MODES.forEach((mode, modeIndex) => {
-        const y = firstBarY + modeIndex * (barHeight + barGap);
-        const value = row[mode];
-        const midY = y + barHeight / 2 + 4;
-        if (value !== null) {
-          svg.appendChild(svgNode('text', { x: plotLeft - 12, y: midY, 'text-anchor': 'end', 'font-size': 11.5, 'font-weight': 650, fill: COLORS.muted, 'font-family': 'ui-monospace, Menlo, monospace', class: 'lbl' }, mode));
-        }
-
-        if (value === null) {
-          // Одна подпись на все незамеренные уровни, по центру между low и high
-          if (mode === 'medium') {
-            svg.appendChild(svgNode('text', { x: plotLeft + 12, y: y - barGap / 2 + 4.5, 'font-size': 12.5, 'font-weight': 600, fill: '#A3A6AD', class: 'lbl' }, 'low / medium / high не замеряли: модель только для OCR PDF'));
-          }
-          return;
-        }
-
-        const isAlert = row.alert === mode;
-        const fill = isAlert ? 'url(#hatch)' : FAITH_FILL[mode];
-        const label = fmt(value, 1) + '%';
-        const note = row.notes ? row.notes[mode] : null;
-
-        if (value === 0) {
-          // Ноль: точка на оси и зелёный бейдж
-          svg.appendChild(svgNode('circle', { cx: plotLeft + 3, cy: y + barHeight / 2, r: 4.5, fill: COLORS.green }));
-          const pill = svgNode('g', { class: 'lbl' });
-          pill.appendChild(svgNode('rect', { x: plotLeft + 13, y: y - 1.5, width: 36, height: barHeight + 3, rx: 5, fill: COLORS.greenSoft }));
-          pill.appendChild(svgNode('text', { x: plotLeft + 31, y: midY, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: COLORS.green }, '0%'));
-          svg.appendChild(pill);
-          return;
-        }
-
-        const barEnd = xOf(value);
-        svg.appendChild(svgNode('rect', { x: plotLeft, y, width: barEnd - plotLeft, height: barHeight, rx: 4, fill }));
-
-        if (isAlert) {
-          svg.appendChild(svgNode('text', { x: barEnd - 8, y: midY, 'text-anchor': 'end', 'font-size': 12.5, 'font-weight': 800, fill: '#fff', class: 'lbl' }, label));
-          const alertGroup = svgNode('g', { class: 'lbl' });
-          const alertX = barEnd + 10;
-          alertGroup.appendChild(svgNode('rect', { x: alertX, y: y - 3, width: plotRight - alertX, height: barHeight + 6, rx: 6, fill: COLORS.redSoft }));
-          alertGroup.appendChild(svgNode('text', { x: alertX + (plotRight - alertX) / 2, y: midY, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: COLORS.redInk }, 'JSON цел лишь в 56%'));
-          svg.appendChild(alertGroup);
-          return;
-        }
-
-        const labelNode = svgNode('text', { x: barEnd + 7, y: midY, 'font-size': 12.5, 'font-weight': 750, fill: COLORS.ink, class: 'lbl' }, label);
-        svg.appendChild(labelNode);
-
-        if (note) {
-          const noteX = barEnd + 7 + labelNode.getComputedTextLength() + 8;
-          const noteGroup = svgNode('g', { class: 'lbl' });
-          const noteRect = svgNode('rect', { x: noteX, y: y - 1.5, height: barHeight + 3, rx: 5, fill: COLORS.fill });
-          const noteText = svgNode('text', { x: noteX + 6, y: midY - 0.5, 'font-size': 11, 'font-weight': 750, fill: '#4F5258' }, note);
-          noteGroup.appendChild(noteRect);
-          noteGroup.appendChild(noteText);
-          svg.appendChild(noteGroup);
-          noteRect.setAttribute('width', noteText.getComputedTextLength() + 12);
-        }
-      });
-    });
+  function heatCell(rate) {
+    if (rate === null) {
+      return '<div class="cell none">нет режима</div>';
+    }
+    if (rate === 0) {
+      return '<div class="cell zero">0%</div>';
+    }
+    // Чем больше выдумок, тем насыщеннее красный; на тёмной заливке текст белый
+    const strength = Math.min(1, rate / HEAT_MAX);
+    const alpha = (0.12 + 0.88 * strength).toFixed(2);
+    const textColor = strength > 0.45 ? '#fff' : 'var(--red-ink)';
+    return `<div class="cell" style="background:rgba(239,49,36,${alpha});color:${textColor}">${comma(rate, 1)}%</div>`;
   }
 
-  /* ---------- 09: цена против времени, данные results.json ---------- */
-  const E2E = [
-    { name: 'deepseek off', rub: 0.859, sec: 51.6, critic: 0.927, numbers: 0.8, chosen: true, noLeader: true, label: { dx: 0, dy: -48, anchor: 'middle' }, sub: '0,86 ₽ · 51,6 с' },
-    { name: 'qwen3.6 off', rub: 0.782, sec: 44.9, critic: 0.700, numbers: 1.0, label: { dx: -14, dy: 10, anchor: 'end' } },
-    { name: 'gemma off', rub: 0.45, sec: 33.4, critic: 0.647, numbers: 1.0, label: { dx: 0, dy: -21, anchor: 'middle' } },
-    { name: 'glm off', rub: 0.815, sec: 96.9, critic: 0.697, numbers: 0.4, label: { dx: 18, dy: -20, anchor: 'start' } },
-    { name: 'kimi off · 4,92 ₽', rub: 4.923, sec: 115.8, critic: 0.62, numbers: 0.0, label: { dx: 14, dy: -24, anchor: 'end' } },
-    { name: 'ds low', rub: 1.204, sec: 98.5, critic: 0.847, numbers: 1.0, option: true, label: { dx: 26, dy: 34, anchor: 'start' }, sub: '1,20 ₽ · 98,5 с' },
-    { name: 'ds medium', rub: 1.418, sec: 121.7, critic: 0.878, numbers: 0.8, label: { dx: 40, dy: 20, anchor: 'start' } },
-    { name: 'ds high', rub: 1.387, sec: 115.6, critic: 0.930, numbers: 0.8, option: true, label: { dx: 40, dy: -30, anchor: 'start' }, sub: '1,39 ₽ · 115,6 с' },
-    { name: 'gemma medium', rub: 0.81, sec: 133.0, critic: 0.783, numbers: 1.0, label: { dx: -20, dy: -6, anchor: 'end' } },
-    { name: 'glm medium', rub: 1.083, sec: 148.0, critic: 0.687, numbers: 1.0, label: { dx: -16, dy: -12, anchor: 'end' } },
-    { name: 'qwen medium', rub: 1.675, sec: 87.4, critic: 0.672, numbers: 0.8, label: { dx: 16, dy: 4, anchor: 'start' } },
-    { name: '1 вызов + банк', rub: 0.353, sec: 24.8, critic: 0.740, numbers: 1.0, label: { dx: 17, dy: 4, anchor: 'start' } },
-    { name: '1 вызов без базы', rub: 0.283, sec: 22.9, critic: 0.722, numbers: 1.0, label: { dx: -30, dy: -38, anchor: 'start' } },
+  function drawHeat(host) {
+    const head = '<div class="hd">модель</div>'
+      + '<div class="hd">off<small>без рассуждений</small></div>'
+      + '<div class="hd">low</div>'
+      + '<div class="hd">medium</div>'
+      + '<div class="hd">high<small>максимум</small></div>';
+    host.innerHTML = head + faith.map((model) => {
+      const cells = MODES.map((mode) => heatCell(model[mode])).join('');
+      return `<div class="who"><b>${model.name}</b><small>${model.role}</small></div>${cells}`;
+    }).join('');
+  }
+
+  /* ---------- 08: провалы по типам ловушек (63 прогона на тип: 3 кейса × 21 конфигурация) ---------- */
+  const traps = [
+    { title: 'Путают клиента, его группу и другие компании', fails: 15 },
+    { title: 'Выбирают одну из противоречащих цифр', fails: 14 },
+    { title: 'Выдают чужие данные за позицию банка', fails: 12 },
+    { title: 'Выдумывают цифры', fails: 10 },
+    { title: 'Переносят рост рынка на компанию', fails: 3 },
+    { title: 'Не признают, что данных нет', fails: 1 },
+  ];
+  const TRAP_RUNS = 63;
+  const TRAP_SCALE = 30;
+
+  function drawTraps(host) {
+    host.innerHTML = traps.map((trap, index) => {
+      const percent = trap.fails / TRAP_RUNS * 100;
+      const width = (percent / TRAP_SCALE * 100).toFixed(1);
+      const hotClass = index < 3 ? ' hot' : '';
+      return `<div class="hbar${hotClass}"><span>${trap.title}</span><i><u style="width:${width}%"></u></i><em>${Math.round(percent)}%</em></div>`;
+    }).join('');
+  }
+
+  /* ---------- 08: бюджет в режиме off ---------- */
+  const budget = [
+    { name: 'gemma-4', calls: 32564, rub: 0.018, sec: 3.4 },
+    { name: 'glm-5.3-flash', calls: 13525, rub: 0.044, sec: 6.9 },
+    { name: 'qwen3.6', calls: 12103, rub: 0.050, sec: 3.4 },
+    { name: 'qwen3-vl', calls: 12002, rub: 0.050, sec: 11.5 },
+    { name: 'deepseek-v4.1', calls: 10472, rub: 0.057, sec: 4.9 },
+    { name: 'kimi-k2.6', calls: 1760, rub: 0.341, sec: 8.3 },
+  ];
+  const BUDGET_MAX = 32564;
+
+  function drawBudget(host) {
+    host.innerHTML = budget.map((model, index) => {
+      const width = (model.calls / BUDGET_MAX * 100).toFixed(1);
+      const hotClass = index === 0 ? ' hot' : '';
+      const calls = model.calls.toLocaleString('ru-RU');
+      return `<div class="brow${hotClass}"><code>${model.name}</code><i><u style="width:${width}%"></u></i><em>${calls}</em>`
+        + `<div class="meta">${comma(model.rub, 3)} ₽ за вызов · ${comma(model.sec, 1)} с</div></div>`;
+    }).join('');
+  }
+
+  /* ---------- 09: таблица со столбиками, данные results.json ---------- */
+  // better: 'low' = меньше лучше (время, цена), 'high' = больше лучше
+  function metricTable(host, firstHeader, columns, rows) {
+    const head = `<div class="hd">${firstHeader}</div>`
+      + columns.map((column) => `<div class="hd">${column.title}${column.hint ? `<small>${column.hint}</small>` : ''}</div>`).join('');
+
+    const bestByColumn = columns.map((column) => {
+      const values = rows.map((row) => row.values[column.key]);
+      return column.better === 'low' ? Math.min(...values) : Math.max(...values);
+    });
+
+    const body = rows.map((row) => {
+      const cells = columns.map((column, index) => {
+        const value = row.values[column.key];
+        const width = Math.max(2, value / column.max * 100).toFixed(1);
+        const isBest = value === bestByColumn[index];
+        return `<div class="mcell${isBest ? ' best' : ''}"><em>${column.format(value)}</em><i><u style="width:${width}%"></u></i></div>`;
+      }).join('');
+      return `<div class="mrow-line"></div><div class="who"><b>${row.name}</b></div>${cells}`;
+    }).join('');
+
+    host.innerHTML = head + body;
+  }
+
+  const seconds = (value) => `${comma(value, 1)} с`;
+  const rubles = (value) => `${comma(value, 2)} ₽`;
+  const score = (value) => comma(value, 3);
+  const percent = (value) => `${Math.round(value)}%`;
+  const plain = (value) => comma(value, 1);
+
+  const MODEL_COLUMNS = [
+    { key: 'sec', title: 'Время', hint: 'на разбор', better: 'low', max: 120, format: seconds },
+    { key: 'rub', title: 'Цена', hint: 'на разбор', better: 'low', max: 5, format: rubles },
+    { key: 'critic', title: 'Оценка', hint: 'критика, 0-1', better: 'high', max: 1, format: score },
+    { key: 'refs', title: 'Сносок', hint: 'в тексте', better: 'high', max: 12, format: plain },
+    { key: 'numbers', title: 'Цифры', hint: 'подтверждены', better: 'high', max: 100, format: percent },
   ];
 
-  function drawE2E(host) {
-    const { svg, width, height } = makeSvg(host);
-    const plotLeft = 52;
-    const plotRight = width - 10;
-    const plotTop = 14;
-    const plotBottom = height - 40;
-    // Обе оси логарифмические: иначе кластер 0,3-1,2 ₽ и 23-97 с слипается
-    const rubMin = Math.log10(0.24);
-    const rubMax = Math.log10(5.6);
-    const secMin = Math.log10(20);
-    const secMax = Math.log10(190);
-    const xOf = (rub) => plotLeft + (Math.log10(rub) - rubMin) / (rubMax - rubMin) * (plotRight - plotLeft);
-    const yOf = (sec) => plotBottom - (Math.log10(sec) - secMin) / (secMax - secMin) * (plotBottom - plotTop);
+  const MODEL_ROWS = [
+    { name: 'deepseek-v4.1', values: { sec: 51.6, rub: 0.859, critic: 0.927, refs: 10.2, numbers: 80 } },
+    { name: 'gemma-4', values: { sec: 33.4, rub: 0.45, critic: 0.647, refs: 5.8, numbers: 100 } },
+    { name: 'qwen3.6', values: { sec: 44.9, rub: 0.782, critic: 0.700, refs: 6.4, numbers: 100 } },
+    { name: 'glm-5.3-flash', values: { sec: 96.9, rub: 0.815, critic: 0.697, refs: 10.2, numbers: 40 } },
+    { name: 'kimi-k2.6', values: { sec: 115.8, rub: 4.923, critic: 0.620, refs: 11.6, numbers: 0 } },
+  ];
 
-    // Зоны: оптимум (дёшево и быстро) и дорогая зона
-    const optimumRight = xOf(1.25);
-    const optimumTop = yOf(100);
-    const expensiveLeft = xOf(2.0);
-    svg.appendChild(svgNode('rect', { x: expensiveLeft, y: plotTop, width: plotRight - expensiveLeft, height: plotBottom - plotTop, rx: 12, fill: 'rgba(239,49,36,.06)' }));
-    svg.appendChild(svgNode('rect', { x: plotLeft, y: optimumTop, width: optimumRight - plotLeft, height: plotBottom - optimumTop, rx: 12, fill: 'rgba(46,138,58,.08)', stroke: COLORS.green, 'stroke-width': 1.5, 'stroke-dasharray': '5 5' }));
+  const EFFORT_COLUMNS = [
+    { key: 'sec', title: 'Время', better: 'low', max: 125, format: seconds },
+    { key: 'rub', title: 'Цена', better: 'low', max: 1.5, format: rubles },
+    { key: 'critic', title: 'Оценка', better: 'high', max: 1, format: score },
+    { key: 'numbers', title: 'Цифры', better: 'high', max: 100, format: percent },
+  ];
 
-    // Оси
-    [30, 60, 100, 150].forEach((tick) => {
-      const y = yOf(tick);
-      svg.appendChild(svgNode('line', { x1: plotLeft, x2: plotRight, y1: y, y2: y, stroke: COLORS.grid, 'stroke-width': 1, 'stroke-dasharray': '3 4' }));
-      svg.appendChild(svgNode('text', { x: plotLeft - 10, y: y + 4, 'text-anchor': 'end', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, tick + ' с'));
-    });
-    svg.appendChild(svgNode('line', { x1: plotLeft, x2: plotRight, y1: plotBottom, y2: plotBottom, stroke: '#C9CBD0', 'stroke-width': 1.5 }));
-    [0.3, 0.5, 1, 2, 3, 5].forEach((tick) => {
-      const x = xOf(tick);
-      svg.appendChild(svgNode('line', { x1: x, x2: x, y1: plotBottom, y2: plotBottom + 5, stroke: '#C9CBD0', 'stroke-width': 1.5 }));
-      svg.appendChild(svgNode('text', { x, y: plotBottom + 20, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 650, fill: COLORS.muted }, String(tick).replace('.', ',') + ' ₽'));
-    });
-    svg.appendChild(svgNode('text', { x: plotRight, y: plotBottom + 37, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 650, fill: '#A3A6AD' }, 'цена одного разбора →'));
+  const EFFORT_ROWS = [
+    { name: 'off', values: { sec: 51.6, rub: 0.859, critic: 0.927, numbers: 80 } },
+    { name: 'low', values: { sec: 98.5, rub: 1.204, critic: 0.847, numbers: 100 } },
+    { name: 'medium', values: { sec: 121.7, rub: 1.418, critic: 0.878, numbers: 80 } },
+    { name: 'high', values: { sec: 115.6, rub: 1.387, critic: 0.930, numbers: 80 } },
+  ];
 
-    svg.appendChild(svgNode('text', { x: plotLeft + 14, y: optimumTop + 22, 'font-size': 12, 'font-weight': 800, 'letter-spacing': '.05em', fill: COLORS.green, class: 'lbl' }, 'ОПТИМУМ · ≤ 1,25 ₽ И ≤ 100 С'));
-    svg.appendChild(svgNode('text', { x: plotRight - 14, y: plotBottom - 14, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 800, 'letter-spacing': '.05em', fill: COLORS.redInk, class: 'lbl' }, 'ДОРОГО · ОТ 2 ₽'));
+  /* ---------- 09: агент против одного вызова (везде deepseek off и критик glm) ---------- */
+  const vsGroups = [
+    { title: 'Источников', hint: 'в разборе', max: 25.4, format: plain, values: [25.4, 8.2, 5.2] },
+    { title: 'Оценка критика', hint: '', max: 1, format: score, values: [0.927, 0.740, 0.722] },
+    { title: 'Время', hint: 'на разбор', max: 51.6, format: seconds, values: [51.6, 24.8, 22.9] },
+    { title: 'Цена', hint: 'на разбор', max: 0.859, format: rubles, values: [0.859, 0.353, 0.283] },
+  ];
+  const VS_LABELS = ['агент', 'один вызов + аналитика банка', 'один вызов без базы'];
 
-    const radiusOf = (critic) => 5 + (critic - 0.6) / 0.33 * 9;
-    const colorOf = (numbers) => {
-      if (numbers >= 1) {
-        return COLORS.green;
-      }
-      if (numbers >= 0.8) {
-        return COLORS.amber;
-      }
-      return COLORS.red;
-    };
-
-    // Выноски: тонкая линия от края точки к подписи, если подпись отнесена далеко
-    E2E.forEach((point) => {
-      const cx = xOf(point.rub);
-      const cy = yOf(point.sec);
-      const distance = Math.hypot(point.label.dx, point.label.dy);
-      const hasRing = point.chosen || point.option;
-      const radius = radiusOf(point.critic) + (hasRing ? 5 : 0);
-      if (point.noLeader || distance < radius + 14) {
-        return;
-      }
-      const anchorShift = { start: -4, end: 4, middle: 0 }[point.label.anchor];
-      const targetX = cx + point.label.dx + anchorShift;
-      const targetY = cy + point.label.dy;
-      const angle = Math.atan2(targetY - cy, targetX - cx);
-      svg.appendChild(svgNode('line', { x1: cx + Math.cos(angle) * (radius + 2), y1: cy + Math.sin(angle) * (radius + 2), x2: targetX, y2: targetY, stroke: '#B4B7BD', 'stroke-width': 1.2 }));
-    });
-
-    // Сначала крупные точки, чтобы мелкие были сверху; выбранная и опции всегда поверх
-    const isFront = (point) => Boolean(point.chosen || point.option);
-    const sorted = [...E2E].sort((left, right) => {
-      if (isFront(left) !== isFront(right)) {
-        return isFront(left) ? 1 : -1;
-      }
-      return right.critic - left.critic;
-    });
-    sorted.forEach((point) => {
-      const cx = xOf(point.rub);
-      const cy = yOf(point.sec);
-      const radius = radiusOf(point.critic);
-      if (point.chosen) {
-        svg.appendChild(svgNode('circle', { cx, cy, r: radius + 5, fill: '#fff', stroke: COLORS.ink, 'stroke-width': 2.5 }));
-      }
-      if (point.option) {
-        // Без заливки: иначе кольцо ds high целиком закрывает соседнюю точку ds medium
-        svg.appendChild(svgNode('circle', { cx, cy, r: radius + 5, fill: 'none', stroke: COLORS.ink, 'stroke-width': 2, 'stroke-dasharray': '4 3' }));
-      }
-      svg.appendChild(svgNode('circle', { cx, cy, r: radius, fill: colorOf(point.numbers), stroke: '#fff', 'stroke-width': 2 }));
-    });
-
-    E2E.forEach((point) => {
-      const cx = xOf(point.rub);
-      const cy = yOf(point.sec);
-      const labelX = cx + point.label.dx;
-      const labelY = cy + point.label.dy;
-      const attrs = {
-        x: labelX,
-        y: labelY + 4.5,
-        'text-anchor': point.label.anchor,
-        'font-size': point.chosen ? 14.5 : 13,
-        'font-weight': isFront(point) ? 800 : 650,
-        fill: isFront(point) ? COLORS.ink : '#45484E',
-        class: 'lbl',
-      };
-      svg.appendChild(svgNode('text', attrs, point.name));
-      if (point.sub) {
-        svg.appendChild(svgNode('text', { ...attrs, y: labelY + 21.5, 'font-size': 12.5, 'font-weight': 700, fill: COLORS.redInk }, point.sub));
-      }
-    });
+  function drawVs(host) {
+    host.innerHTML = vsGroups.map((group) => {
+      const bars = group.values.map((value, index) => {
+        const width = (value / group.max * 100).toFixed(1);
+        const agentClass = index === 0 ? ' agent' : '';
+        return `<div class="vb${agentClass}"><small>${VS_LABELS[index]}</small><i><u style="width:${width}%"></u></i><em>${group.format(value)}</em></div>`;
+      }).join('');
+      const hint = group.hint ? ` <small>${group.hint}</small>` : '';
+      return `<div><h3>${group.title}${hint}</h3>${bars}</div>`;
+    }).join('');
   }
 
   /* ---------- 10: матрица ленты, данные ranking.json (per_company) ---------- */
@@ -716,8 +573,12 @@
     }).join('');
   }
 
-  drawFaith(document.getElementById('faith-chart'));
-  drawE2E(document.getElementById('e2e-chart'));
+  drawHeat(document.getElementById('heat'));
+  drawTraps(document.getElementById('traps'));
+  drawBudget(document.getElementById('budget'));
+  metricTable(document.getElementById('models'), 'агент', MODEL_COLUMNS, MODEL_ROWS);
+  metricTable(document.getElementById('effort'), 'режим', EFFORT_COLUMNS, EFFORT_ROWS);
+  drawVs(document.getElementById('vs'));
   drawRank(document.getElementById('rank-matrix'));
 
   // Маскот в углу: та же 3D-модель, что на сайте (синхронный рендер в data URL)
